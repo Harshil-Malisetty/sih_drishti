@@ -16,11 +16,20 @@ This directory is intentionally documentation-only in the frontend prototype.
 
 | Endpoint | Response | Frontend consumer |
 |---|---|---|
-| `GET /api/incidents` | `Incident[]` | `incidentsService` |
-| `GET /api/watchlist/matches` | `WatchlistMatch[]` | `watchlistService` |
-| `GET /api/municipal/defects` | `RoadDefect[]` | `municipalService` |
-| `POST /api/municipal/simulations` | `ConstructionSimulation` | `municipalService` |
+| `GET /api/incidents` | `Incident[]` | `incidentsService.getIncidents` |
+| `GET /api/incidents/:id` | `Incident` with `VehicleTrack` and pipeline events | `incidentsService.getIncident` |
+| `GET /api/watchlist` | `WatchlistEntry[]` | `watchlistService.getWatchlist` |
+| `GET /api/watchlist/matches` | `WatchlistMatch[]` | `watchlistService.getWatchlistMatches` |
+| `GET /api/watchlist/matches/:id` | Match with `FleetObservation[]` | `watchlistService.getWatchlistMatch` |
+| `PATCH /api/watchlist/matches/:id` | Officer decision: verified or dismissed | future verification service |
+| `GET /api/municipal/defects` | `RoadDefect[]` | `municipalService.getRoadDefects` |
+| `GET /api/municipal/defects/:id` | Defect with observations and repair event | `municipalService.getRoadDefect` |
+| `GET /api/municipal/road-risk` | `RoadRisk[]` | `municipalService.getRoadRisk` |
+| `POST /api/municipal/construction/simulate` | `ConstructionSimulation` | `municipalService.runConstructionSimulation` |
+| `GET /api/municipal/map` | Filterable municipal GIS records | `municipalService.getMunicipalMapData` |
 | `GET /api/traffic` | `TrafficObservation[]` | `trafficService` |
-| `GET /api/map/buses` | `Bus[]` | `mapService` |
+| `GET /api/fleet/buses` | `Bus[]` | `mapService` |
 
-Responses will mirror the TypeScript contracts in `src/types`. Edge devices should submit event metadata, a representative frame or short clip, source bus, GPS and timestamps—not continuous video.
+Responses mirror the contracts in `src/types`. An incident detail response includes location, source bus and route, ANPR confidence, evidence reference, and ordered pipeline events. A watchlist match includes zero or more geolocated fleet observations. A road defect includes longitudinal observations and an optional repair verification event. Construction requests contain road, start date and duration; responses contain network impacts and a weekly progression.
+
+Edge devices should submit event metadata, a representative frame or short clip, source bus, GPS and timestamps—not continuous video. Predictions and confidence scores require explicit provenance. Watchlist decisions remain human actions and must later be authenticated and audited.
