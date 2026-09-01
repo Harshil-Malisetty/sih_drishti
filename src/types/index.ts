@@ -12,5 +12,9 @@ export interface RepairEvent { markedRepaired:string; nextObservation:string; bu
 export interface RoadDefect extends GeoPoint { id:string; defectType:string; category:'Roads'|'Infrastructure'|'Water'|'Pedestrians'; severity:Severity; location:string; firstSeen:string; lastSeen:string; status:Status; growthPercentage:number; detectionCount:number; route:string; busIds:string[]; repairStatus?:string; repair?:RepairEvent; observations?:DefectObservation[]; image:string; }
 export interface RoadRisk { id:string; segment:string; condition:string; risk:Severity; trend:string; projectedIntervention:string; reason:string; currentStage:number; stages:string[]; busIds:string[]; }
 export interface ConstructionSimulation { id:string; road:string; duration:string; startDate:string; trafficRedistribution:'High'|'Medium'|'Low'; affectedRoadSegments:number; highRiskSegments:number; congestionIncrease:number; finding:string; recommendation:string; timeline:{period:string;impact:string;level:number}[]; }
-export interface TrafficObservation { id:string; location:string; road:string; vehicleCount:number; densityLevel:'Free'|'Moderate'|'Heavy'|'Severe'; averageSpeed:number; timestamp:string; trend:'Increasing'|'Stable'|'Decreasing'; }
+export type TrafficLevel = 'Free'|'Moderate'|'Heavy'|'Severe';
+export interface TrafficObservation { id:string; location:string; road:string; vehicleCount:number; densityLevel:TrafficLevel; averageSpeed:number; timestamp:string; trend:'Increasing'|'Stable'|'Decreasing'; mapX:number; mapY:number; recommendedAction:string; }
+export interface CitizenAlert { id:string; type:'Traffic'|'Waterlogging'|'Obstruction'; title:string; location:string; distance:string; timeAgo:string; trafficId?:string; severity:Severity; }
+export interface CitizenRoute { id:string; origin:string; destination:string; currentMinutes:number; alternativeMinutes:number; via:string; traffic:TrafficLevel; reason:string; avoiding:string; stops:string[]; }
+export interface CitizenMapData { traffic:TrafficObservation[]; alerts:CitizenAlert[]; }
 export interface Bus extends GeoPoint { id:string; route:string; status:'Sensing'|'In transit'; observations:number; }

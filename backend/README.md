@@ -27,9 +27,13 @@ This directory is intentionally documentation-only in the frontend prototype.
 | `GET /api/municipal/road-risk` | `RoadRisk[]` | `municipalService.getRoadRisk` |
 | `POST /api/municipal/construction/simulate` | `ConstructionSimulation` | `municipalService.runConstructionSimulation` |
 | `GET /api/municipal/map` | Filterable municipal GIS records | `municipalService.getMunicipalMapData` |
-| `GET /api/traffic` | `TrafficObservation[]` | `trafficService` |
+| `GET /api/traffic` | `TrafficObservation[]` | `trafficService.getTrafficData` |
+| `GET /api/traffic/segments/:id` | `TrafficObservation` | `trafficService.getSegment` |
+| `GET /api/citizen/map` | `CitizenMapData` | `citizenService.getMapData` |
+| `GET /api/alerts` | `CitizenAlert[]` | `citizenService.getAlerts` |
+| `POST /api/routes/recommend` | `CitizenRoute` | `citizenService.recommendRoute` |
 | `GET /api/fleet/buses` | `Bus[]` | `mapService` |
 
-Responses mirror the contracts in `src/types`. An incident detail response includes location, source bus and route, ANPR confidence, evidence reference, and ordered pipeline events. A watchlist match includes zero or more geolocated fleet observations. A road defect includes longitudinal observations and an optional repair verification event. Construction requests contain road, start date and duration; responses contain network impacts and a weekly progression.
+Responses mirror the contracts in `src/types`. Citizen responses expose public road conditions and journey guidance only; they exclude faces, registrations, watchlists, confidence scores and internal source-bus identifiers. Route recommendations are advisory prototype outputs, not turn-by-turn navigation. An incident detail response includes location, source bus and route, ANPR confidence, evidence reference, and ordered pipeline events. A watchlist match includes zero or more geolocated fleet observations. A road defect includes longitudinal observations and an optional repair verification event. Construction requests contain road, start date and duration; responses contain network impacts and a weekly progression.
 
 Edge devices should submit event metadata, a representative frame or short clip, source bus, GPS and timestamps—not continuous video. Predictions and confidence scores require explicit provenance. Watchlist decisions remain human actions and must later be authenticated and audited.
