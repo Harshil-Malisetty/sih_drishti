@@ -36,7 +36,7 @@ export function PoliceMapView({markers,selected,onSelect,trail=[]}:{markers:Poli
   if(trail.length>1){
    const points=trail.map(point=>[point.latitude,point.longitude] as L.LatLngTuple);
    L.polyline(points,{color:'#a96f2c',weight:3,dashArray:'7 7'}).addTo(layer.current);
-   points.forEach((point,index)=>L.circleMarker(point,{radius:5,color:'#a96f2c',weight:2,fillColor:'#fff',fillOpacity:1}).bindTooltip(trail[index].label||`Observation ${index+1}`).addTo(layer.current!));
+   points.forEach((point,index)=>L.marker(point,{icon:L.divIcon({className:'trail-sequence',html:`<span>${index+1}</span>`,iconSize:[22,22],iconAnchor:[11,11]})}).bindTooltip(`${index+1} → ${trail[index].label||`Observation ${index+1}`}`).addTo(layer.current!));
   }
   markers.forEach(marker=>{
    const active=marker.id===selected;

@@ -12,6 +12,7 @@ export default function CitizenPages({page,navigate,exit}:{page:string;navigate:
  const [failed,setFailed]=useState(false);
  const [routeDetail,setRouteDetail]=useState(false);
  useEffect(()=>{Promise.all([citizenService.getMapData(),citizenService.recommendRoute()]).then(([map,result])=>{setTraffic(map.traffic);setAlerts(map.alerts);setRoute(result)}).catch(()=>setFailed(true))},[]);
+ useEffect(()=>{const home=()=>setRouteDetail(false);addEventListener('workspace-home',home);return()=>removeEventListener('workspace-home',home)},[]);
  if(routeDetail&&route)return <><AppHeader title="Route details" subtitle="Simulated journey estimate" onBack={()=>setRouteDetail(false)}/><main><RouteDetail route={route}/></main></>;
  return <><AppHeader title="Citizen Mobility" subtitle="Chennai · Updated 18:44" onExit={exit}/><main>{failed?<ErrorState/>:!traffic||!alerts||!route?<LoadingState/>:<>{page==='traffic'&&<TrafficHome traffic={traffic} alerts={alerts} openMap={()=>navigate('map')} openAlerts={()=>navigate('alerts')}/>} {page==='map'&&<TrafficMap traffic={traffic} findRoute={()=>navigate('routes')}/>} {page==='routes'&&<Routes route={route} view={()=>setRouteDetail(true)}/>} {page==='alerts'&&<Alerts alerts={alerts}/>}</>}</main></>;
 }

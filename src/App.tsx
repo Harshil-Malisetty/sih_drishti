@@ -5,7 +5,7 @@ import { navigation } from './navigation/config';
 import type { Role } from './types';
 import { BottomNavigation, SessionActionsProvider } from './components/ui';
 import PolicePages from './pages/PolicePages';
-import MunicipalPages from './pages/MunicipalPages';
+import MunicipalPages from './pages/MunicipalOperations';
 import CitizenPages from './pages/CitizenPages';
 
 type WorkspaceRole = Exclude<Role, 'landing'>;
@@ -47,7 +47,7 @@ export default function App(){
  if(screen==='signin'&&pendingRole)return <SignIn role={pendingRole} onBack={backToLanding} onSubmit={signIn}/>;
  if(!role)return <Landing enter={selectRole}/>;
  const items=navigation[role];
- return <SessionActionsProvider onLogout={()=>setConfirmLogout(true)}><div className={`app-shell ${role}`}>{role==='police'?<PolicePages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:role==='municipal'?<MunicipalPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:<CitizenPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>}<BottomNavigation items={items} active={page} onChange={setPage}/>{confirmLogout&&<LogoutDialog role={role} onCancel={()=>setConfirmLogout(false)} onConfirm={logout}/>}</div></SessionActionsProvider>
+ return <SessionActionsProvider onLogout={()=>setConfirmLogout(true)} onHome={()=>{window.dispatchEvent(new Event('workspace-home'));setPage(role==='citizen'?'traffic':'overview')}}><div className={`app-shell ${role}`}>{role==='police'?<PolicePages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:role==='municipal'?<MunicipalPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:<CitizenPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>}<BottomNavigation items={items} active={page} onChange={setPage}/>{confirmLogout&&<LogoutDialog role={role} onCancel={()=>setConfirmLogout(false)} onConfirm={logout}/>}</div></SessionActionsProvider>
 }
 
 function BrandHeader(){return <header><img className="brand-logo" src={drishtiLogo} alt="Drishti"/><div><strong>DRISHTI</strong><small>AI-POWERED MOBILE URBAN INTELLIGENCE</small></div><span className="demo">DEMO MODE</span></header>}
