@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type SVGProps } from 'react';
 import { ArrowLeft, ArrowRight, BusFront, ChevronRight, Cpu, Radio } from 'lucide-react';
+import drishtiLogo from './assets/drishti_logo.png';
 import { navigation } from './navigation/config';
 import type { Role } from './types';
 import { BottomNavigation, SessionActionsProvider } from './components/ui';
@@ -49,7 +50,7 @@ export default function App(){
  return <SessionActionsProvider onLogout={()=>setConfirmLogout(true)}><div className={`app-shell ${role}`}>{role==='police'?<PolicePages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:role==='municipal'?<MunicipalPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:<CitizenPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>}<BottomNavigation items={items} active={page} onChange={setPage}/>{confirmLogout&&<LogoutDialog role={role} onCancel={()=>setConfirmLogout(false)} onConfirm={logout}/>}</div></SessionActionsProvider>
 }
 
-function BrandHeader(){return <header><img className="brand-logo" src="/assets/drishti-logo.svg" alt="Drishti"/><div><strong>DRISHTI</strong><small>AI-POWERED MOBILE URBAN INTELLIGENCE</small></div><span className="demo">DEMO MODE</span></header>}
+function BrandHeader(){return <header><img className="brand-logo" src={drishtiLogo} alt="Drishti"/><div><strong>DRISHTI</strong><small>AI-POWERED MOBILE URBAN INTELLIGENCE</small></div><span className="demo">DEMO MODE</span></header>}
 
 function Landing({enter}:{enter:(r:WorkspaceRole)=>void}){const roles=(Object.keys(roleDetails) as WorkspaceRole[]).map(id=>({id,...roleDetails[id]}));return <main className="landing"><BrandHeader/><section className="hero"><div className="hero-visual"><svg viewBox="0 0 390 230"><path d="M-10 200 C80 155 118 205 195 145 S320 55 410 90"/><path d="M35 240 C90 180 105 110 90 -10"/><path d="M250 240 C220 180 260 105 330 -10"/></svg><div className="bus-orbit"><BusFront/><span>PUBLIC FLEET</span></div><i className="node n1"/><i className="node n2"/><i className="node n3"/><div className="signal"><Radio/>238 sensing</div></div><h1>Public transport becomes a moving sensor network.</h1><span className="hero-kicker">ONE FLEET. A CITY OF INSIGHTS.</span><div className="flow" aria-label="Bus cameras to edge processing to city intelligence"><span><BusFront/> Bus cameras</span><ArrowRight/><span><Cpu/> Edge processing</span><ArrowRight/><span>City intelligence</span></div></section><section className="role-section"><div><h2>Select your workspace</h2></div><div className="role-list">{roles.map(({id,label,sub,Icon})=><button onClick={()=>enter(id)} key={id}><i><Icon/></i><div><strong>{label}</strong><span>{sub}</span></div><ChevronRight/></button>)}</div></section><footer><span>SIMULATED DATA ENVIRONMENT</span><b><i/> Platform operational</b></footer></main>}
 
