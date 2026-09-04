@@ -1,0 +1,17 @@
+.police-real-map .police-geo-map {
+  z-index: 0;
+}
+
+.police-real-map .bottom-sheet {
+  max-height: 42%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 800px) {
+  .police-real-map .bottom-sheet {
+    right: 10px;
+    left: auto;
+    width: min(380px, calc(100% - 20px));
+  }
+}
