@@ -1,0 +1,352 @@
+.municipal-map-page .police-geo-map {
+  z-index: 0;
+}
+
+.municipal-map-page .bottom-sheet {
+  max-height: 42%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.municipal-overview .operations-metrics {
+  gap: 0;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.municipal-overview .operations-metrics .metric {
+  min-height: 86px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg,#fff 0%,#f8faf9 100%);
+}
+
+.municipal-overview .operations-metrics .metric:nth-child(even) { border-right: 0; }
+.municipal-overview .operations-metrics .metric:nth-last-child(-n+2) { border-bottom: 0; }
+.municipal-overview .operations-metrics .metric p { color: #52615c; font-weight: 700; }
+.municipal-overview .operations-metrics .metric strong { font-variant-numeric: tabular-nums; }
+.municipal-overview .operations-metrics .metric.open strong { color: #315c51; }
+.municipal-overview .operations-metrics .metric.infrastructure strong { color: #866126; }
+.municipal-overview .operations-metrics .metric.infrastructure:before { background: #b08338; }
+.municipal-overview .operations-metrics .metric small { margin-top: 5px; }
+
+.lifecycle-chart {
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.lifecycle-chart > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 14px 4px;
+}
+
+.lifecycle-chart header span,
+.lifecycle-chart header small {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.lifecycle-chart h2 {
+  margin: 3px 0 0;
+  font-size: 17px;
+}
+
+.lifecycle-chart header > strong {
+  color: var(--green);
+  font-size: 24px;
+  line-height: 1;
+  text-align: right;
+}
+
+.lifecycle-chart header small {
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.lifecycle-plot {
+  position: relative;
+  height: 220px;
+  margin: 8px 14px 0 35px;
+  border-left: 1px solid #8c9994;
+  border-bottom: 1px solid #8c9994;
+}
+
+.lifecycle-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.lifecycle-plot .grid-line {
+  stroke: #dfe5e2;
+  stroke-width: .6;
+  vector-effect: non-scaling-stroke;
+}
+
+.lifecycle-plot .threshold-line {
+  stroke: #b84940;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-casing,
+.trend-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-casing { stroke: #fff; stroke-width: 8; }
+.trend-line { stroke: #866126; stroke-width: 4; }
+
+.threshold-label {
+  position: absolute;
+  z-index: 2;
+  top: 36%;
+  right: 2px;
+  padding: 2px 4px;
+  background: #fff;
+  color: #a43f38;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.axis-label.y {
+  position: absolute;
+  left: -29px;
+  top: 50%;
+  width: 100px;
+  transform: translate(-38px,-50%) rotate(-90deg);
+  color: var(--muted);
+  font-size: 8px;
+  text-align: center;
+}
+
+.severity-scale {
+  position: absolute;
+  left: -30px;
+  inset-block: 8px 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.lifecycle-point {
+  position: absolute;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%,-50%);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lifecycle-point i {
+  display: block;
+  width: 13px;
+  height: 13px;
+  margin: auto;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #866126;
+  box-shadow: 0 0 0 1px #866126;
+}
+
+.lifecycle-point.active i {
+  width: 18px;
+  height: 18px;
+  background: #b84940;
+  box-shadow: 0 0 0 2px #b84940;
+}
+
+.lifecycle-point span {
+  position: absolute;
+  top: 27px;
+  left: 50%;
+  width: 48px;
+  transform: translateX(-50%);
+  color: #4e5b57;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.lifecycle-point.current:after {
+  content: 'CURRENT';
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #a43f38;
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.lifecycle-dates {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  margin: 5px 14px 12px 35px;
+  color: var(--muted);
+  font-size: 7px;
+  text-align: center;
+}
+
+.lifecycle-evidence {
+  display: grid;
+  grid-template-columns: minmax(120px,42%) 1fr;
+  min-height: 150px;
+  border-top: 1px solid var(--line);
+}
+
+.lifecycle-image {
+  position: relative;
+  min-height: 150px;
+  overflow: hidden;
+  background: #27322f;
+}
+
+.lifecycle-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lifecycle-image span {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  background: #172321dc;
+  color: #fff;
+  font-size: 8px;
+}
+
+.lifecycle-image svg { width: 11px; }
+.lifecycle-evidence > div:last-child { padding: 13px; }
+.lifecycle-evidence > div:last-child > span { color: #8a5b1f; font-size: 8px; font-weight: 800; }
+.lifecycle-evidence h3 { margin: 5px 0; font-size: 15px; }
+.lifecycle-evidence p { margin: 0 0 10px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.lifecycle-evidence small { display: flex; align-items: center; gap: 4px; color: #53625d; font-size: 8px; }
+.lifecycle-evidence small svg { width: 12px; }
+
+.planning-controls {
+  margin-bottom: 0;
+  background: #edf3f0;
+}
+
+.planning-controls span {
+  line-height: 1.4;
+}
+
+.scenario-map {
+  position: relative;
+  min-height: 290px;
+  background: #dbe4df;
+}
+
+.scenario-road-label {
+  display: grid;
+  place-items: center;
+  width: 112px !important;
+  height: 34px !important;
+  border: 1px solid #315c51;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 2px 8px #1d302b36;
+  color: #294b43;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.scenario-road-label.active {
+  border-color: #a43f38;
+  background: #a43f38;
+  color: #fff;
+}
+
+.impact-chart {
+  position: relative;
+  padding-top: 24px;
+}
+
+.impact-chart svg {
+  display: block;
+  width: 100%;
+  height: 190px;
+  overflow: visible;
+  border-left: 1px solid #9aa7a2;
+  border-bottom: 1px solid #9aa7a2;
+}
+
+.closure-window { fill: #f4e8e2; }
+.impact-grid { stroke: #9aa7a2; stroke-width: .7; vector-effect: non-scaling-stroke; }
+.baseline-line,.simulated-line { fill: none; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.baseline-line { stroke: #315c51; stroke-dasharray: 5 4; }
+.simulated-line { stroke: #b34b3f; }
+.impact-point { fill: #b34b3f; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
+
+.chart-legend {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.chart-legend span:before {
+  content: '';
+  display: inline-block;
+  width: 13px;
+  height: 2px;
+  margin-right: 4px;
+  vertical-align: 2px;
+  background: #315c51;
+}
+
+.chart-legend .simulated-key:before { background: #b34b3f; }
+
+.chart-axis,.chart-values {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.chart-values {
+  margin-top: 10px;
+  color: var(--ink);
+}
+
+.chart-values strong { color: #a43f38; }
+
+@media (min-width: 800px) {
+  .municipal-map-page .bottom-sheet {
+    right: 10px;
+    left: auto;
+    width: min(380px, calc(100% - 20px));
+  }
+}
+
+@media (max-width: 430px) {
+  .lifecycle-plot { height: 190px; }
+  .lifecycle-evidence { grid-template-columns: 118px 1fr; }
+}
