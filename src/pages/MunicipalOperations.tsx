@@ -1,75 +1,994 @@
-import { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { ArrowRight, BusFront, CalendarCheck, Construction, MapPin, X } from 'lucide-react';
-import { defects, plannerRoadSegments } from '../data/demo';
-import type { PlannerRoadSegment, RoadDefect, Severity } from '../types';
-import { DefectCard } from '../components/cards';
-import { AppHeader, FilterBar, MetricCard, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
-import { MunicipalMapView, type MunicipalGeoMarker, type MunicipalMapCamera } from '../components/MunicipalMapView';
-import { ObservationProgression } from '../components/PotholeLifecycle';
+import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import {
+  ArrowRight,
+  BusFront,
+  CalendarCheck,
+  Construction,
+  MapPin,
+  X,
+} from "lucide-react";
+import { defects, plannerRoadSegments } from "../data/demo";
+import type { PlannerRoadSegment, RoadDefect, Severity } from "../types";
+import { DefectCard } from "../components/cards";
+import {
+  AppHeader,
+  FilterBar,
+  MetricCard,
+  PageIntro,
+  SectionHeader,
+  SeverityBadge,
+  Surface,
+} from "../components/ui";
+import {
+  MunicipalMapView,
+  type MunicipalGeoMarker,
+  type MunicipalMapCamera,
+} from "../components/MunicipalMapView";
+import { ObservationProgression } from "../components/PotholeLifecycle";
+import { Bar } from "../components/charts/bar";
+import { BarChart } from "../components/charts/bar-chart";
+import { BarXAxis } from "../components/charts/bar-x-axis";
+import { Grid } from "../components/charts/grid";
+import { Line, LineChart } from "../components/charts/line-chart";
+import { ChartTooltip } from "../components/charts/tooltip";
 
-type View={kind:'detail'|'lifecycle';id:string}|{kind:'result';road:string;duration:string};
-type ImpactSeverity=Extract<Severity,'High'|'Medium'|'Low'>|'Severe';
-type AffectedRoad={segment:PlannerRoadSegment;additionalVehicles:number;saturation:number;delay:number;severity:ImpactSeverity};
-type TimelinePoint={label:string;day:number;delay:number};
-type PlannerSimulation={road:PlannerRoadSegment;duration:string;days:number;scenarioLabel:string;delay:number;simulatedMinutes:number;affected:AffectedRoad[];busRoutes:string[];timeline:TimelinePoint[];confidence:'Observed'|'Limited'};
-const durationScenarios={'2 weeks':{multiplier:.75,days:14,label:'Short works window'},'8 weeks':{multiplier:1,days:56,label:'Staged construction'},'4 months':{multiplier:1.35,days:120,label:'Extended closure'}} as const;
-const impactSeverity=(saturation:number):ImpactSeverity=>saturation>=1.08?'Severe':saturation>=.9?'High':saturation>=.76?'Medium':'Low';
-function simulateClosure(roadId:string,duration:string):PlannerSimulation{
- const road=plannerRoadSegments.find(segment=>segment.id===roadId)||plannerRoadSegments[0];
- const scenario=durationScenarios[duration as keyof typeof durationScenarios]||durationScenarios['8 weeks'];
- const connected=road.connectsTo.map(id=>plannerRoadSegments.find(segment=>segment.id===id)).filter((segment):segment is PlannerRoadSegment=>Boolean(segment));
- const spareCapacity=connected.map(segment=>Math.max(segment.capacity-segment.hourlyVehicles,20));
- const totalSpare=spareCapacity.reduce((total,value)=>total+value,0);
- const displacedVehicles=Math.round(road.hourlyVehicles*(.58+scenario.multiplier*.12));
- const affected=connected.map((segment,index)=>{
-  const additionalVehicles=Math.round(displacedVehicles*(spareCapacity[index]/totalSpare));
-  const saturation=(segment.hourlyVehicles+additionalVehicles)/segment.capacity;
-  const delay=Math.max(2,Math.round(segment.baselineMinutes*Math.max(.1,saturation-.55)*scenario.multiplier*.48));
-  return {segment,additionalVehicles,saturation,delay,severity:impactSeverity(saturation)};
- }).sort((a,b)=>b.saturation-a.saturation);
- const networkPressure=affected.reduce((total,item)=>total+item.saturation,0)/Math.max(affected.length,1);
- const delay=Math.max(3,Math.round(road.baselineMinutes*(.18+networkPressure*.2)*scenario.multiplier));
- const timeline=[
-  {label:'Baseline',day:0,delay:0},
-  {label:'Initial disruption',day:1,delay:Math.round(delay*.62)},
-  {label:'Peak impact',day:Math.max(3,Math.round(scenario.days*.16)),delay},
-  {label:'Adaptation',day:Math.round(scenario.days*.58),delay:Math.max(2,Math.round(delay*.68))},
-  {label:'Closure end',day:scenario.days,delay:Math.max(1,Math.round(delay*.22))}
- ];
- return {road,duration,days:scenario.days,scenarioLabel:scenario.label,delay,simulatedMinutes:road.baselineMinutes+delay,affected,busRoutes:[...new Set([...road.busRoutes,...affected.flatMap(item=>item.segment.busRoutes)])],timeline,confidence:road.observedPasses>=700?'Observed':'Limited'};
+type View =
+  | { kind: "detail" | "lifecycle"; id: string }
+  | { kind: "result"; road: string; duration: string };
+type ImpactSeverity = Extract<Severity, "High" | "Medium" | "Low"> | "Severe";
+type AffectedRoad = {
+  segment: PlannerRoadSegment;
+  additionalVehicles: number;
+  saturation: number;
+  delay: number;
+  severity: ImpactSeverity;
+};
+type TimelinePoint = { label: string; day: number; delay: number };
+type PlannerSimulation = {
+  road: PlannerRoadSegment;
+  duration: string;
+  days: number;
+  scenarioLabel: string;
+  delay: number;
+  simulatedMinutes: number;
+  affected: AffectedRoad[];
+  busRoutes: string[];
+  timeline: TimelinePoint[];
+  confidence: "Observed" | "Limited";
+};
+const durationScenarios = {
+  "2 weeks": { multiplier: 0.75, days: 14, label: "Short works window" },
+  "8 weeks": { multiplier: 1, days: 56, label: "Staged construction" },
+  "4 months": { multiplier: 1.35, days: 120, label: "Extended closure" },
+} as const;
+const impactSeverity = (saturation: number): ImpactSeverity =>
+  saturation >= 1.08
+    ? "Severe"
+    : saturation >= 0.9
+      ? "High"
+      : saturation >= 0.76
+        ? "Medium"
+        : "Low";
+function simulateClosure(roadId: string, duration: string): PlannerSimulation {
+  const road =
+    plannerRoadSegments.find((segment) => segment.id === roadId) ||
+    plannerRoadSegments[0];
+  const scenario =
+    durationScenarios[duration as keyof typeof durationScenarios] ||
+    durationScenarios["8 weeks"];
+  const connected = road.connectsTo
+    .map((id) => plannerRoadSegments.find((segment) => segment.id === id))
+    .filter((segment): segment is PlannerRoadSegment => Boolean(segment));
+  const spareCapacity = connected.map((segment) =>
+    Math.max(segment.capacity - segment.hourlyVehicles, 20),
+  );
+  const totalSpare = spareCapacity.reduce((total, value) => total + value, 0);
+  const displacedVehicles = Math.round(
+    road.hourlyVehicles * (0.58 + scenario.multiplier * 0.12),
+  );
+  const affected = connected
+    .map((segment, index) => {
+      const additionalVehicles = Math.round(
+        displacedVehicles * (spareCapacity[index] / totalSpare),
+      );
+      const saturation =
+        (segment.hourlyVehicles + additionalVehicles) / segment.capacity;
+      const delay = Math.max(
+        2,
+        Math.round(
+          segment.baselineMinutes *
+            Math.max(0.1, saturation - 0.55) *
+            scenario.multiplier *
+            0.48,
+        ),
+      );
+      return {
+        segment,
+        additionalVehicles,
+        saturation,
+        delay,
+        severity: impactSeverity(saturation),
+      };
+    })
+    .sort((a, b) => b.saturation - a.saturation);
+  const networkPressure =
+    affected.reduce((total, item) => total + item.saturation, 0) /
+    Math.max(affected.length, 1);
+  const delay = Math.max(
+    3,
+    Math.round(
+      road.baselineMinutes *
+        (0.18 + networkPressure * 0.2) *
+        scenario.multiplier,
+    ),
+  );
+  const timeline = [
+    { label: "Baseline", day: 0, delay: 0 },
+    { label: "Initial disruption", day: 1, delay: Math.round(delay * 0.62) },
+    {
+      label: "Peak impact",
+      day: Math.max(3, Math.round(scenario.days * 0.16)),
+      delay,
+    },
+    {
+      label: "Adaptation",
+      day: Math.round(scenario.days * 0.58),
+      delay: Math.max(2, Math.round(delay * 0.68)),
+    },
+    {
+      label: "Closure end",
+      day: scenario.days,
+      delay: Math.max(1, Math.round(delay * 0.22)),
+    },
+  ];
+  return {
+    road,
+    duration,
+    days: scenario.days,
+    scenarioLabel: scenario.label,
+    delay,
+    simulatedMinutes: road.baselineMinutes + delay,
+    affected,
+    busRoutes: [
+      ...new Set([
+        ...road.busRoutes,
+        ...affected.flatMap((item) => item.segment.busRoutes),
+      ]),
+    ],
+    timeline,
+    confidence: road.observedPasses >= 700 ? "Observed" : "Limited",
+  };
 }
-export default function MunicipalOperations({page,navigate,exit}:{page:string;navigate:(x:string)=>void;exit:()=>void}){
- const [stack,setStack]=useState<View[]>([]);const [issueFilter,setIssueFilter]=useState('All');const [mapFilter,setMapFilter]=useState<MunicipalLayer>('Road defects');const [mapSelected,setMapSelected]=useState(defects.find(x=>inMunicipalLayer(x,'Road defects'))?.id||defects[0].id);const [mapViews,setMapViews]=useState<Partial<Record<MunicipalLayer,MunicipalMapCamera>>>({});const [planningRoad,setPlanningRoad]=useState(plannerRoadSegments[0].id);const [planningDuration,setPlanningDuration]=useState('8 weeks');const open=(view:View)=>{setStack(s=>[...s,view]);history.pushState({municipal:true},'')};const back=()=>history.back();const home=()=>{setStack([]);navigate('overview')};
- useEffect(()=>{const pop=()=>setStack(s=>s.slice(0,-1));const reset=()=>setStack([]);addEventListener('popstate',pop);addEventListener('workspace-home',reset);return()=>{removeEventListener('popstate',pop);removeEventListener('workspace-home',reset)}},[]);
- const active=stack.at(-1);if(active?.kind==='detail')return <Detail id={active.id} back={back} home={home} lifecycle={()=>open({kind:'lifecycle',id:active.id})}/>;if(active?.kind==='lifecycle')return <Lifecycle id={active.id} back={back} home={home}/>;if(active?.kind==='result')return <Result roadId={active.road} duration={active.duration} back={back} home={home}/>;
- const openItem=(item:RoadDefect)=>open({kind:'detail',id:item.id});const showIssues=(filter:string)=>{setIssueFilter(filter);navigate('defects')};return <><AppHeader title="Municipal Operations" subtitle="Chennai Zone Network · Live" onHome={home} onExit={exit}/><main>{page==='overview'&&<Overview go={navigate} showIssues={showIssues} open={openItem}/>} {page==='defects'&&<IssueList filter={issueFilter} onFilter={setIssueFilter} open={openItem}/>} {page==='map'&&<MunicipalMap filter={mapFilter} selected={mapSelected} view={mapViews[mapFilter]} onFilter={setMapFilter} onSelect={setMapSelected} onViewChange={camera=>setMapViews(views=>({...views,[mapFilter]:camera}))} open={openItem}/>} {page==='planning'&&<Planning selected={planningRoad} duration={planningDuration} onRoad={setPlanningRoad} onDuration={setPlanningDuration} run={()=>open({kind:'result',road:planningRoad,duration:planningDuration})}/>}</main></>;
+export default function MunicipalOperations({
+  page,
+  navigate,
+  exit,
+}: {
+  page: string;
+  navigate: (x: string) => void;
+  exit: () => void;
+}) {
+  const [stack, setStack] = useState<View[]>([]);
+  const [issueFilter, setIssueFilter] = useState("All");
+  const [mapFilter, setMapFilter] = useState<MunicipalLayer>("Road defects");
+  const [mapSelected, setMapSelected] = useState(
+    defects.find((x) => inMunicipalLayer(x, "Road defects"))?.id ||
+      defects[0].id,
+  );
+  const [mapViews, setMapViews] = useState<
+    Partial<Record<MunicipalLayer, MunicipalMapCamera>>
+  >({});
+  const [planningRoad, setPlanningRoad] = useState(plannerRoadSegments[0].id);
+  const [planningDuration, setPlanningDuration] = useState("8 weeks");
+  const open = (view: View) => {
+    setStack((s) => [...s, view]);
+    history.pushState({ municipal: true }, "");
+  };
+  const back = () => history.back();
+  const home = () => {
+    setStack([]);
+    navigate("overview");
+  };
+  useEffect(() => {
+    const pop = () => setStack((s) => s.slice(0, -1));
+    const reset = () => setStack([]);
+    addEventListener("popstate", pop);
+    addEventListener("workspace-home", reset);
+    return () => {
+      removeEventListener("popstate", pop);
+      removeEventListener("workspace-home", reset);
+    };
+  }, []);
+  const active = stack.at(-1);
+  if (active?.kind === "detail")
+    return (
+      <Detail
+        id={active.id}
+        back={back}
+        home={home}
+        lifecycle={() => open({ kind: "lifecycle", id: active.id })}
+      />
+    );
+  if (active?.kind === "lifecycle")
+    return <Lifecycle id={active.id} back={back} home={home} />;
+  if (active?.kind === "result")
+    return (
+      <Result
+        roadId={active.road}
+        duration={active.duration}
+        back={back}
+        home={home}
+      />
+    );
+  const openItem = (item: RoadDefect) => open({ kind: "detail", id: item.id });
+  const showIssues = (filter: string) => {
+    setIssueFilter(filter);
+    navigate("defects");
+  };
+  return (
+    <>
+      <AppHeader
+        title="Municipal Operations"
+        subtitle="Chennai Zone Network · Live"
+        onHome={home}
+        onExit={exit}
+      />
+      <main>
+        {page === "overview" && (
+          <Overview go={navigate} showIssues={showIssues} open={openItem} />
+        )}{" "}
+        {page === "defects" && (
+          <IssueList
+            filter={issueFilter}
+            onFilter={setIssueFilter}
+            open={openItem}
+          />
+        )}{" "}
+        {page === "map" && (
+          <MunicipalMap
+            filter={mapFilter}
+            selected={mapSelected}
+            view={mapViews[mapFilter]}
+            onFilter={setMapFilter}
+            onSelect={setMapSelected}
+            onViewChange={(camera) =>
+              setMapViews((views) => ({ ...views, [mapFilter]: camera }))
+            }
+            open={openItem}
+          />
+        )}{" "}
+        {page === "planning" && (
+          <Planning
+            selected={planningRoad}
+            duration={planningDuration}
+            onRoad={setPlanningRoad}
+            onDuration={setPlanningDuration}
+            run={() =>
+              open({
+                kind: "result",
+                road: planningRoad,
+                duration: planningDuration,
+              })
+            }
+          />
+        )}
+      </main>
+    </>
+  );
 }
-function Overview({go,showIssues,open}:{go:(x:string)=>void;showIssues:(filter:string)=>void;open:(x:RoadDefect)=>void}){
- const openIssues=defects.filter(item=>item.status!=='Verified');
- const criticalIssues=defects.filter(item=>item.severity==='Critical');
- const infrastructureIssues=defects.filter(item=>item.category==='Infrastructure');
- const pendingIssues=defects.filter(item=>item.status==='Pending Verification');
- const totalEvidence=defects.reduce((total,item)=>total+item.detectionCount,0);
- const reportingBuses=new Set(defects.flatMap(item=>item.busIds)).size;
- const corridorVolumes=plannerRoadSegments.map(segment=>segment.observedPasses);
- const maximum=Math.max(...corridorVolumes);
- const points=corridorVolumes.map((value,index)=>`${index*(100/(corridorVolumes.length-1))},${94-(value/maximum)*74}`).join(' ');
- const severityRank:Record<Severity,number>={Critical:4,High:3,Medium:2,Low:1};
- const priorities=[...openIssues].sort((left,right)=>severityRank[right.severity]-severityRank[left.severity]).slice(0,3);
- return <div className="page municipal-overview"><PageIntro eyebrow="MUNICIPAL OPERATIONS · LIVE REGISTER" title="City Road Health"/><div className="metric-grid compact operations-metrics"><MetricCard label="Open records" value={String(openIssues.length).padStart(2,'0')} tone="open" meta={`${totalEvidence} fleet observations`}/><MetricCard label="Critical" value={String(criticalIssues.length).padStart(2,'0')} tone="critical" meta="Needs action"/><MetricCard label="Infrastructure" value={String(infrastructureIssues.length).padStart(2,'0')} tone="infrastructure" meta="Active assets"/><MetricCard label="Verification" value={String(pendingIssues.length).padStart(2,'0')} tone="water" meta="Pending passes"/></div><div className="sensor-strip municipal"><BusFront/><div><strong>{totalEvidence} observations in the active register</strong><span>{reportingBuses} buses · {defects.length} tracked locations</span></div></div><section className="operations-brief"><div className="observation-trend"><header><span>CORRIDOR OBSERVATION VOLUME</span><strong>{plannerRoadSegments.length} <small>sampled corridors</small></strong></header><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`Observed fleet passes across ${plannerRoadSegments.length} planning corridors`}><defs><linearGradient id="observation-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#315c51" stopOpacity=".24"/><stop offset="1" stopColor="#315c51" stopOpacity="0"/></linearGradient></defs>{[30,50,70,90].map(gridY=><line key={gridY} className="overview-grid" x1="0" y1={gridY} x2="100" y2={gridY}/>) }<path d={`M0,94 L${points} L100,94 Z`} fill="url(#observation-fill)"/><polyline points={points}/>{corridorVolumes.map((value,index)=><circle key={plannerRoadSegments[index].id} cx={index*(100/(corridorVolumes.length-1))} cy={94-(value/maximum)*74} r="1.7"/>)}</svg><footer><span>Anna Salai</span><span>OMR</span></footer></div><div className="geographic-pressure"><header><span>PRIORITY LOCATIONS</span><button onClick={()=>go('map')}>Open map <ArrowRight/></button></header>{priorities.map(item=><button key={item.id} onClick={()=>open(item)}><i data-tone={item.severity==='Critical'?'high':item.severity==='High'?'medium':'low'}/><span><strong>{item.location}</strong><small>{item.defectType}</small></span><b>{item.status}</b></button>)}</div></section><SectionHeader title="Priority evidence" action="View all" onAction={()=>showIssues('All')}/><DefectCard item={priorities[0]} onClick={()=>open(priorities[0])}/><nav className="municipal-actions" aria-label="Municipal workflows"><button onClick={()=>showIssues('All')}><span>ISSUE REGISTER</span><strong>Review all records</strong><ArrowRight/></button><button onClick={()=>go('map')}><span>GIS OPERATIONS</span><strong>Inspect city layers</strong><ArrowRight/></button><button onClick={()=>go('planning')}><span>NETWORK PLANNING</span><strong>Model a closure</strong><ArrowRight/></button></nav></div>
+function Overview({
+  go,
+  showIssues,
+  open,
+}: {
+  go: (x: string) => void;
+  showIssues: (filter: string) => void;
+  open: (x: RoadDefect) => void;
+}) {
+  const openIssues = defects.filter((item) => item.status !== "Verified");
+  const criticalIssues = defects.filter((item) => item.severity === "Critical");
+  const infrastructureIssues = defects.filter(
+    (item) => item.category === "Infrastructure",
+  );
+  const pendingIssues = defects.filter(
+    (item) => item.status === "Pending Verification",
+  );
+  const totalEvidence = defects.reduce(
+    (total, item) => total + item.detectionCount,
+    0,
+  );
+  const reportingBuses = new Set(defects.flatMap((item) => item.busIds)).size;
+  const corridorCoverage = plannerRoadSegments.map((segment) => ({
+    corridor: segment.name.split(" · ")[0].replace(" Road", ""),
+    passes: segment.observedPasses,
+  }));
+  const severityRank: Record<Severity, number> = {
+    Critical: 4,
+    High: 3,
+    Medium: 2,
+    Low: 1,
+  };
+  const priorities = [...openIssues]
+    .sort(
+      (left, right) =>
+        severityRank[right.severity] - severityRank[left.severity],
+    )
+    .slice(0, 3);
+  return (
+    <div className="page municipal-overview">
+      <PageIntro
+        eyebrow="MUNICIPAL OPERATIONS · LIVE REGISTER"
+        title="City Road Health"
+      />
+      <div className="metric-grid compact operations-metrics">
+        <MetricCard
+          label="Open records"
+          value={String(openIssues.length).padStart(2, "0")}
+          tone="open"
+          meta={`${totalEvidence} fleet observations`}
+        />
+        <MetricCard
+          label="Critical"
+          value={String(criticalIssues.length).padStart(2, "0")}
+          tone="critical"
+          meta="Needs action"
+        />
+        <MetricCard
+          label="Infrastructure"
+          value={String(infrastructureIssues.length).padStart(2, "0")}
+          tone="infrastructure"
+          meta="Active assets"
+        />
+        <MetricCard
+          label="Verification"
+          value={String(pendingIssues.length).padStart(2, "0")}
+          tone="water"
+          meta="Pending passes"
+        />
+      </div>
+      <div className="sensor-strip municipal">
+        <BusFront />
+        <div>
+          <strong>{totalEvidence} observations in the active register</strong>
+          <span>
+            {reportingBuses} buses · {defects.length} tracked locations
+          </span>
+        </div>
+      </div>
+      <section className="operations-brief">
+        <div className="observation-trend">
+          <header>
+            <span>MUNICIPAL FLEET OBSERVATION COVERAGE</span>
+            <strong>
+              {plannerRoadSegments.length} <small>sampled corridors</small>
+            </strong>
+          </header>
+          <BarChart data={corridorCoverage} xDataKey="corridor" aspectRatio="2.65 / 1" margin={{ top: 12, right: 8, bottom: 38, left: 8 }} barGap={0.28}>
+            <Grid horizontal vertical={false} numTicksRows={4} stroke="#d7dfdc" strokeDasharray="3,4" />
+            <Bar dataKey="passes" fill="#315c51" lineCap={3} />
+            <BarXAxis maxLabels={4} tickerHalfWidth={34} />
+            <ChartTooltip showDatePill={false} rows={(point) => [{ color: "#315c51", label: "Observed fleet passes", value: Number(point.passes) }]} />
+          </BarChart>
+        </div>
+        <div className="geographic-pressure">
+          <header>
+            <span>PRIORITY LOCATIONS</span>
+            <button onClick={() => go("map")}>
+              Open map <ArrowRight />
+            </button>
+          </header>
+          {priorities.map((item) => (
+            <button key={item.id} onClick={() => open(item)}>
+              <i
+                data-tone={
+                  item.severity === "Critical"
+                    ? "high"
+                    : item.severity === "High"
+                      ? "medium"
+                      : "low"
+                }
+              />
+              <span>
+                <strong>{item.location}</strong>
+                <small>{item.defectType}</small>
+              </span>
+              <b>{item.status}</b>
+            </button>
+          ))}
+        </div>
+      </section>
+      <SectionHeader
+        title="Priority evidence"
+        action="View all"
+        onAction={() => showIssues("All")}
+      />
+      <DefectCard item={priorities[0]} onClick={() => open(priorities[0])} />
+      <nav className="municipal-actions" aria-label="Municipal workflows">
+        <button onClick={() => showIssues("All")}>
+          <span>ISSUE REGISTER</span>
+          <strong>Review all records</strong>
+          <ArrowRight />
+        </button>
+        <button onClick={() => go("map")}>
+          <span>GIS OPERATIONS</span>
+          <strong>Inspect city layers</strong>
+          <ArrowRight />
+        </button>
+        <button onClick={() => go("planning")}>
+          <span>NETWORK PLANNING</span>
+          <strong>Model a closure</strong>
+          <ArrowRight />
+        </button>
+      </nav>
+    </div>
+  );
 }
-function IssueList({filter,onFilter,open}:{filter:string;onFilter:(value:string)=>void;open:(x:RoadDefect)=>void}){const visible=defects.filter(x=>filter==='All'||x.category===filter);return <div className="page"><PageIntro eyebrow="FLEET OBSERVATIONS · UPDATED 18:45" title="Road & infrastructure"/><FilterBar items={['All','Roads','Infrastructure','Water','Pedestrians']} active={filter} onChange={onFilter}/><div className="list-stack">{visible.map(x=><DefectCard item={x} key={x.id} onClick={()=>open(x)}/>)}</div></div>}
-function Detail({id,back,home,lifecycle}:{id:string;back:()=>void;home:()=>void;lifecycle:()=>void}){const x=defects.find(d=>d.id===id);if(!x)return <><AppHeader title="Record unavailable" subtitle={id} onBack={back} onHome={home}/><main className="page detail"><PageIntro eyebrow="MUNICIPAL RECORD" title="This record is no longer available"/></main></>;const latest=x.observations?.at(-1);const hasProgression=(x.observations?.length||0)>1;return <><AppHeader title={x.category==='Infrastructure'?'Infrastructure record':'Defect record'} subtitle={x.id} onBack={back} onHome={home}/><main className="page detail"><div className="title-row"><div><span className="eyebrow">{x.category.toUpperCase()} · FLEET EVIDENCE</span><h1>{x.defectType}</h1><p><MapPin/> {x.location}</p></div><SeverityBadge value={x.severity}/></div><div className="road-frame"><img src={latest?.image||x.image} alt={`${x.defectType} latest observation`}/><span>LATEST EVIDENCE</span><em>{x.lastSeen} · {latest?.busId||x.busIds.at(-1)}</em></div><Surface className="detail-facts"><div><span>First observed</span><strong>{x.firstSeen}</strong></div><div><span>Latest observation</span><strong>{x.lastSeen}</strong></div><div><span>Current status</span><strong>{x.status}</strong></div><div><span>Fleet evidence</span><strong>{x.detectionCount} observations · {x.busIds.length} buses</strong></div><div><span>Infrastructure category</span><strong>{x.infrastructureCategory||x.category}</strong></div><div><span>Current condition</span><strong>{x.currentCondition||x.repairStatus||x.status}</strong></div></Surface>{(x.recommendedAction||x.maintenanceState)&&<section className="record-action"><span>RECOMMENDED ACTION</span><strong>{x.recommendedAction}</strong><small>{x.maintenanceState}</small></section>}{x.repair&&<Surface className="verification"><CalendarCheck/><div><span>REPAIR {x.repair.result.toUpperCase()}</span><strong>{x.repair.detail}</strong><p>{x.repair.nextObservation} · {x.repair.busId}</p></div></Surface>}{hasProgression&&<button className="primary full" onClick={lifecycle}>Open {x.progressionTitle?.toLowerCase()||'condition progression'} <ArrowRight/></button>}</main></>}
-function Lifecycle({id,back,home}:{id:string;back:()=>void;home:()=>void}){const x=defects.find(d=>d.id===id);if(!x)return null;return <><AppHeader title="Condition intelligence" subtitle={x.id} onBack={back} onHome={home}/><main className="page detail"><PageIntro eyebrow="FLEET-DERIVED CONDITION HISTORY" title={x.location}/><ObservationProgression defect={x}/></main></>}
+function IssueList({
+  filter,
+  onFilter,
+  open,
+}: {
+  filter: string;
+  onFilter: (value: string) => void;
+  open: (x: RoadDefect) => void;
+}) {
+  const visible = defects.filter(
+    (x) => filter === "All" || x.category === filter,
+  );
+  return (
+    <div className="page">
+      <PageIntro
+        eyebrow="FLEET OBSERVATIONS · UPDATED 18:45"
+        title="Road & infrastructure"
+      />
+      <FilterBar
+        items={["All", "Roads", "Infrastructure", "Water", "Pedestrians"]}
+        active={filter}
+        onChange={onFilter}
+      />
+      <div className="list-stack">
+        {visible.map((x) => (
+          <DefectCard item={x} key={x.id} onClick={() => open(x)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+function Detail({
+  id,
+  back,
+  home,
+  lifecycle,
+}: {
+  id: string;
+  back: () => void;
+  home: () => void;
+  lifecycle: () => void;
+}) {
+  const x = defects.find((d) => d.id === id);
+  if (!x)
+    return (
+      <>
+        <AppHeader
+          title="Record unavailable"
+          subtitle={id}
+          onBack={back}
+          onHome={home}
+        />
+        <main className="page detail">
+          <PageIntro
+            eyebrow="MUNICIPAL RECORD"
+            title="This record is no longer available"
+          />
+        </main>
+      </>
+    );
+  const latest = x.observations?.at(-1);
+  const hasProgression = (x.observations?.length || 0) > 1;
+  return (
+    <>
+      <AppHeader
+        title={
+          x.category === "Infrastructure"
+            ? "Infrastructure record"
+            : "Defect record"
+        }
+        subtitle={x.id}
+        onBack={back}
+        onHome={home}
+      />
+      <main className="page detail">
+        <div className="title-row">
+          <div>
+            <span className="eyebrow">
+              {x.category.toUpperCase()} · FLEET EVIDENCE
+            </span>
+            <h1>{x.defectType}</h1>
+            <p>
+              <MapPin /> {x.location}
+            </p>
+          </div>
+          <SeverityBadge value={x.severity} />
+        </div>
+        <div className="road-frame">
+          <img
+            src={latest?.image || x.image}
+            alt={`${x.defectType} latest observation`}
+          />
+          <span>LATEST EVIDENCE</span>
+          <em>
+            {x.lastSeen} · {latest?.busId || x.busIds.at(-1)}
+          </em>
+        </div>
+        <Surface className="detail-facts">
+          <div>
+            <span>First observed</span>
+            <strong>{x.firstSeen}</strong>
+          </div>
+          <div>
+            <span>Latest observation</span>
+            <strong>{x.lastSeen}</strong>
+          </div>
+          <div>
+            <span>Current status</span>
+            <strong>{x.status}</strong>
+          </div>
+          <div>
+            <span>Fleet evidence</span>
+            <strong>
+              {x.detectionCount} observations · {x.busIds.length} buses
+            </strong>
+          </div>
+          <div>
+            <span>Infrastructure category</span>
+            <strong>{x.infrastructureCategory || x.category}</strong>
+          </div>
+          <div>
+            <span>Current condition</span>
+            <strong>{x.currentCondition || x.repairStatus || x.status}</strong>
+          </div>
+        </Surface>
+        {(x.recommendedAction || x.maintenanceState) && (
+          <section className="record-action">
+            <span>RECOMMENDED ACTION</span>
+            <strong>{x.recommendedAction}</strong>
+            <small>{x.maintenanceState}</small>
+          </section>
+        )}
+        {x.repair && (
+          <Surface className="verification">
+            <CalendarCheck />
+            <div>
+              <span>REPAIR {x.repair.result.toUpperCase()}</span>
+              <strong>{x.repair.detail}</strong>
+              <p>
+                {x.repair.nextObservation} · {x.repair.busId}
+              </p>
+            </div>
+          </Surface>
+        )}
+        {hasProgression && (
+          <button className="primary full" onClick={lifecycle}>
+            Open {x.progressionTitle?.toLowerCase() || "condition progression"}{" "}
+            <ArrowRight />
+          </button>
+        )}
+      </main>
+    </>
+  );
+}
+function Lifecycle({
+  id,
+  back,
+  home,
+}: {
+  id: string;
+  back: () => void;
+  home: () => void;
+}) {
+  const x = defects.find((d) => d.id === id);
+  if (!x) return null;
+  return (
+    <>
+      <AppHeader
+        title="Condition intelligence"
+        subtitle={x.id}
+        onBack={back}
+        onHome={home}
+      />
+      <main className="page detail">
+        <PageIntro
+          eyebrow="FLEET-DERIVED CONDITION HISTORY"
+          title={x.location}
+        />
+        <ObservationProgression defect={x} />
+      </main>
+    </>
+  );
+}
 
-type MunicipalLayer='Road defects'|'Infrastructure'|'Pedestrian risks';
-const municipalLayers:MunicipalLayer[]=['Road defects','Infrastructure','Pedestrian risks'];
-const inMunicipalLayer=(item:RoadDefect,layer:MunicipalLayer)=>layer==='Road defects'?item.category==='Roads'||item.category==='Water':layer==='Infrastructure'?item.category==='Infrastructure':item.category==='Pedestrians';
-function MunicipalMap({filter,selected,view,onFilter,onSelect,onViewChange,open}:{filter:MunicipalLayer;selected:string;view?:MunicipalMapCamera;onFilter:(value:MunicipalLayer)=>void;onSelect:(id:string)=>void;onViewChange:(camera:MunicipalMapCamera)=>void;open:(x:RoadDefect)=>void}){const visible=defects.filter(x=>inMunicipalLayer(x,filter));const item=visible.find(x=>x.id===selected);const markers:MunicipalGeoMarker[]=visible.map(x=>({id:x.id,type:x.category==='Infrastructure'?'infrastructure':x.category==='Pedestrians'?'pedestrian':'road',latitude:x.latitude,longitude:x.longitude,label:`${x.defectType} · ${x.location}`}));const changeFilter=(value:string)=>{const next=value as MunicipalLayer;onFilter(next);const first=defects.find(x=>inMunicipalLayer(x,next));if(first)onSelect(first.id)};return <div className="map-page municipal-map-page"><div className="map-filter"><FilterBar items={municipalLayers} active={filter} onChange={changeFilter}/></div><MunicipalMapView markers={markers} selected={selected} initialView={view} onSelect={onSelect} onViewChange={onViewChange}/>{item&&<section className="bottom-sheet"><i className="handle"/><span className="sheet-eyebrow">{item.severity.toUpperCase()} · {item.category.toUpperCase()}</span><h3>{item.defectType}</h3><p>{item.location} · {item.status}</p><small>{item.detectionCount} observations · Last seen {item.lastSeen}</small><button className="primary" onClick={()=>open(item)}>Open record</button></section>}</div>}
+type MunicipalLayer = "Road defects" | "Infrastructure" | "Pedestrian risks";
+const municipalLayers: MunicipalLayer[] = [
+  "Road defects",
+  "Infrastructure",
+  "Pedestrian risks",
+];
+const inMunicipalLayer = (item: RoadDefect, layer: MunicipalLayer) =>
+  layer === "Road defects"
+    ? item.category === "Roads" || item.category === "Water"
+    : layer === "Infrastructure"
+      ? item.category === "Infrastructure"
+      : item.category === "Pedestrians";
+function MunicipalMap({
+  filter,
+  selected,
+  view,
+  onFilter,
+  onSelect,
+  onViewChange,
+  open,
+}: {
+  filter: MunicipalLayer;
+  selected: string;
+  view?: MunicipalMapCamera;
+  onFilter: (value: MunicipalLayer) => void;
+  onSelect: (id: string) => void;
+  onViewChange: (camera: MunicipalMapCamera) => void;
+  open: (x: RoadDefect) => void;
+}) {
+  const visible = defects.filter((x) => inMunicipalLayer(x, filter));
+  const item = visible.find((x) => x.id === selected);
+  const markers: MunicipalGeoMarker[] = visible.map((x) => ({
+    id: x.id,
+    type:
+      x.category === "Infrastructure"
+        ? "infrastructure"
+        : x.category === "Pedestrians"
+          ? "pedestrian"
+          : "road",
+    latitude: x.latitude,
+    longitude: x.longitude,
+    label: `${x.defectType} · ${x.location}`,
+  }));
+  const changeFilter = (value: string) => {
+    const next = value as MunicipalLayer;
+    onFilter(next);
+    const first = defects.find((x) => inMunicipalLayer(x, next));
+    if (first) onSelect(first.id);
+  };
+  return (
+    <div className="map-page municipal-map-page">
+      <div className="map-filter">
+        <FilterBar
+          items={municipalLayers}
+          active={filter}
+          onChange={changeFilter}
+        />
+      </div>
+      <MunicipalMapView
+        markers={markers}
+        selected={selected}
+        initialView={view}
+        onSelect={onSelect}
+        onViewChange={onViewChange}
+      />
+      {item && (
+        <section className="bottom-sheet">
+          <i className="handle" />
+          <span className="sheet-eyebrow">
+            {item.severity.toUpperCase()} · {item.category.toUpperCase()}
+          </span>
+          <h3>{item.defectType}</h3>
+          <p>
+            {item.location} · {item.status}
+          </p>
+          <small>
+            {item.detectionCount} observations · Last seen {item.lastSeen}
+          </small>
+          <button className="primary" onClick={() => open(item)}>
+            Open record
+          </button>
+        </section>
+      )}
+    </div>
+  );
+}
 
-function Planning({selected,duration,onRoad,onDuration,run}:{selected:string;duration:string;onRoad:(id:string)=>void;onDuration:(value:string)=>void;run:()=>void}){const road=plannerRoadSegments.find(segment=>segment.id===selected)||plannerRoadSegments[0];return <div className="page planning-page"><PageIntro eyebrow="MAP-FIRST NETWORK SCENARIO" title="Urban Planning & What-If"/><div className="planning-instruction"><strong>Select a road on the map</strong><span>Tap a corridor to configure its closure</span></div><ScenarioMap selected={selected} onSelect={onRoad}/><section className="selected-road"><span>SELECTED ROAD</span><strong>{road.name}</strong><small>{road.baselineLevel} traffic · {road.baselineMinutes} min baseline · {road.observedPasses.toLocaleString()} observed passes</small></section><Surface className="form"><label>Closure / construction duration<select value={duration} onChange={event=>onDuration(event.target.value)}><option>2 weeks</option><option>8 weeks</option><option>4 months</option></select></label><button className="primary full" onClick={run}><Construction/> Run simulation</button></Surface></div>}
-function ScenarioMap({selected,onSelect,simulation}:{selected:string;onSelect?:(id:string)=>void;simulation?:PlannerSimulation}){const host=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null),layer=useRef<L.LayerGroup|null>(null);useEffect(()=>{if(!host.current||map.current)return;map.current=L.map(host.current,{zoomControl:false}).setView([13.02,80.239],13);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map.current);layer.current=L.layerGroup().addTo(map.current);return()=>{map.current?.remove();map.current=null;layer.current=null}},[]);useEffect(()=>{if(!layer.current||!map.current)return;layer.current.clearLayers();const affectedById=new Map(simulation?.affected.map(item=>[item.segment.id,item]));plannerRoadSegments.forEach(road=>{const active=road.id===selected;const affected=affectedById.get(road.id);const choose=()=>onSelect?.(road.id);const color=active?'#a93632':affected?.severity==='Severe'?'#7a2d35':affected?.severity==='High'?'#d07727':affected?'#d5a33c':'#547069';const weight=active?11:affected?8:5;L.polyline(road.points,{color,weight,opacity:active||affected?.severity?1:.58,dashArray:active&&simulation?'10 7':undefined}).bindTooltip(active?`${road.name} · ${simulation?'CLOSED':'SELECTED'}`:affected?`${road.name} · ${affected.severity} · +${affected.delay} min`:road.name).addTo(layer.current!);if(onSelect)L.polyline(road.points,{color:'#000',weight:22,opacity:0}).on('click',choose).addTo(layer.current!);if(active){const anchor=road.points[Math.floor(road.points.length/2)];L.marker(anchor,{title:road.name,alt:road.name,keyboard:true,icon:L.divIcon({className:'scenario-road-label active',html:`<span>${simulation?'CLOSED':'SELECTED'} · ${road.name.split(' · ')[0]}</span>`,iconSize:[150,34],iconAnchor:[75,17]})}).on('click',choose).addTo(layer.current!)}});const relevant=simulation?[simulation.road,...simulation.affected.map(item=>item.segment)]:plannerRoadSegments;map.current.fitBounds(L.latLngBounds(relevant.flatMap(road=>road.points)),{padding:[30,30],maxZoom:14,animate:false});},[selected,onSelect,simulation]);return <div className="scenario-map" ref={host} aria-label={simulation?'Closed road and affected road network':'Selectable road network map'}/>}
-function ImpactChart({simulation}:{simulation:PlannerSimulation}){const maximum=simulation.road.baselineMinutes+simulation.delay+5;const [activePoint,setActivePoint]=useState(simulation.timeline[2]);const x=(day:number)=>10+(day/simulation.days)*80;const y=(delay:number)=>88-((simulation.road.baselineMinutes+delay)/maximum)*68;const baselinePoints=`10,${y(0)} 90,${y(0)}`;const simulatedPoints=simulation.timeline.map(point=>`${x(point.day)},${y(point.delay)}`).join(' ');return <div className="impact-chart"><div className="chart-toolbar"><div className="chart-legend"><span className="baseline-key">Observed baseline</span><span className="simulated-key">Closure scenario</span></div><output className="chart-tooltip" aria-live="polite"><span>{activePoint.label} · Day {activePoint.day}</span><strong>{simulation.road.baselineMinutes+activePoint.delay} min</strong></output></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${simulation.road.baselineMinutes} minute baseline compared with ${simulation.simulatedMinutes} minute peak over ${simulation.days} days`}><rect className="closure-window" x="10" y="8" width="80" height="80"/>{[20,37,54,71,88].map(gridY=><line key={gridY} className="impact-grid" x1="10" y1={gridY} x2="90" y2={gridY}/>) }<polyline className="baseline-line" points={baselinePoints}/><polyline className="simulated-line" points={simulatedPoints}/>{simulation.timeline.map(point=><circle key={point.label} className={`impact-point${activePoint.label===point.label?' active':''}`} cx={x(point.day)} cy={y(point.delay)} r="2" tabIndex={0} role="button" aria-label={`${point.label}, day ${point.day}, ${simulation.road.baselineMinutes+point.delay} minutes`} onFocus={()=>setActivePoint(point)} onMouseEnter={()=>setActivePoint(point)} onClick={()=>setActivePoint(point)}/>)}</svg><div className="chart-axis">{simulation.timeline.map(point=><span key={point.label}>{point.label}<small>Day {point.day}</small></span>)}</div><div className="chart-values"><span>{simulation.road.baselineMinutes} min baseline</span><strong>{simulation.simulatedMinutes} min peak</strong></div></div>}
-function Result({roadId,duration,back,home}:{roadId:string;duration:string;back:()=>void;home:()=>void}){const simulation=simulateClosure(roadId,duration);const [showNotice,setShowNotice]=useState(true);return <><AppHeader title="Scenario result" subtitle={`${simulation.road.name} · ${duration}`} onBack={back} onHome={home}/><main className="page detail scenario-result">{showNotice&&<div className="simulation-notice" role="status"><span><strong>Simulation complete</strong><small>{simulation.road.name} · {duration} closure</small></span><button onClick={()=>setShowNotice(false)} aria-label="Dismiss simulation notice"><X/></button></div>}<section className="scenario-heading"><span>SCENARIO</span><h1>{simulation.road.name}</h1><p>{duration} full closure · deterministic network estimate</p></section><ScenarioMap selected={simulation.road.id} simulation={simulation}/><div className="scenario-compare"><span>OBSERVED<strong>{simulation.road.baselineMinutes} min</strong><small>{simulation.road.baselineLevel} baseline</small></span><ArrowRight/><span>SIMULATED PEAK<strong>{simulation.simulatedMinutes} min</strong><small>+{simulation.delay} min delay</small></span></div><section className="network-impact"><SectionHeader title="Connected network impact"/><ul>{simulation.affected.map(item=><li key={item.segment.id}><span><strong>{item.segment.name}</strong><small>+{item.additionalVehicles} vehicles/hr · +{item.delay} min</small></span><b data-impact={item.severity.toLowerCase()}>{item.severity}</b></li>)}</ul></section><section className="timeline-section"><SectionHeader title="Baseline vs closure period"/><ImpactChart simulation={simulation}/></section><section className="bus-impact"><BusFront/><div><span>BUS IMPACT</span><strong>{simulation.busRoutes.join(', ')}</strong><small>Routes using the closed corridor or a connected transfer segment</small></div></section><section className="data-basis"><span>DATA BASIS · {simulation.confidence.toUpperCase()}</span><strong>{simulation.road.observedPasses.toLocaleString()} fleet passes</strong><p>Planning estimate based on observed traffic, segment capacity and network connectivity. It is not a citywide prediction.</p></section></main></>}
+function Planning({
+  selected,
+  duration,
+  onRoad,
+  onDuration,
+  run,
+}: {
+  selected: string;
+  duration: string;
+  onRoad: (id: string) => void;
+  onDuration: (value: string) => void;
+  run: () => void;
+}) {
+  const road =
+    plannerRoadSegments.find((segment) => segment.id === selected) ||
+    plannerRoadSegments[0];
+  return (
+    <div className="page planning-page">
+      <PageIntro
+        eyebrow="MAP-FIRST NETWORK SCENARIO"
+        title="Urban Planning & What-If"
+      />
+      <div className="planning-instruction">
+        <strong>Select a road on the map</strong>
+        <span>Tap a corridor to configure its closure</span>
+      </div>
+      <ScenarioMap selected={selected} onSelect={onRoad} />
+      <section className="selected-road">
+        <span>SELECTED ROAD</span>
+        <strong>{road.name}</strong>
+        <small>
+          {road.baselineLevel} traffic · {road.baselineMinutes} min baseline ·{" "}
+          {road.observedPasses.toLocaleString()} observed passes
+        </small>
+      </section>
+      <Surface className="form">
+        <label>
+          Closure / construction duration
+          <select
+            value={duration}
+            onChange={(event) => onDuration(event.target.value)}
+          >
+            <option>2 weeks</option>
+            <option>8 weeks</option>
+            <option>4 months</option>
+          </select>
+        </label>
+        <button className="primary full" onClick={run}>
+          <Construction /> Run simulation
+        </button>
+      </Surface>
+    </div>
+  );
+}
+function ScenarioMap({
+  selected,
+  onSelect,
+  simulation,
+}: {
+  selected: string;
+  onSelect?: (id: string) => void;
+  simulation?: PlannerSimulation;
+}) {
+  const host = useRef<HTMLDivElement>(null),
+    map = useRef<L.Map | null>(null),
+    layer = useRef<L.LayerGroup | null>(null);
+  useEffect(() => {
+    if (!host.current || map.current) return;
+    map.current = L.map(host.current, { zoomControl: false }).setView(
+      [13.02, 80.239],
+      13,
+    );
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(map.current);
+    layer.current = L.layerGroup().addTo(map.current);
+    return () => {
+      map.current?.remove();
+      map.current = null;
+      layer.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    if (!layer.current || !map.current) return;
+    layer.current.clearLayers();
+    const affectedById = new Map(
+      simulation?.affected.map((item) => [item.segment.id, item]),
+    );
+    plannerRoadSegments.forEach((road) => {
+      const active = road.id === selected;
+      const affected = affectedById.get(road.id);
+      const choose = () => onSelect?.(road.id);
+      const color = active
+        ? "#a93632"
+        : affected?.severity === "Severe"
+          ? "#7a2d35"
+          : affected?.severity === "High"
+            ? "#d07727"
+            : affected
+              ? "#d5a33c"
+              : "#547069";
+      const weight = active ? 11 : affected ? 8 : 5;
+      L.polyline(road.points, {
+        color,
+        weight,
+        opacity: active || affected?.severity ? 1 : 0.58,
+        dashArray: active && simulation ? "10 7" : undefined,
+      })
+        .bindTooltip(
+          active
+            ? `${road.name} · ${simulation ? "CLOSED" : "SELECTED"}`
+            : affected
+              ? `${road.name} · ${affected.severity} · +${affected.delay} min`
+              : road.name,
+        )
+        .addTo(layer.current!);
+      if (onSelect)
+        L.polyline(road.points, { color: "#000", weight: 22, opacity: 0 })
+          .on("click", choose)
+          .addTo(layer.current!);
+      if (active) {
+        const anchor = road.points[Math.floor(road.points.length / 2)];
+        L.marker(anchor, {
+          title: road.name,
+          alt: road.name,
+          keyboard: true,
+          icon: L.divIcon({
+            className: "scenario-road-label active",
+            html: `<span>${simulation ? "CLOSED" : "SELECTED"} · ${road.name.split(" · ")[0]}</span>`,
+            iconSize: [150, 34],
+            iconAnchor: [75, 17],
+          }),
+        })
+          .on("click", choose)
+          .addTo(layer.current!);
+      }
+    });
+    const relevant = simulation
+      ? [simulation.road, ...simulation.affected.map((item) => item.segment)]
+      : plannerRoadSegments;
+    map.current.fitBounds(
+      L.latLngBounds(relevant.flatMap((road) => road.points)),
+      { padding: [30, 30], maxZoom: 14, animate: false },
+    );
+  }, [selected, onSelect, simulation]);
+  return (
+    <div
+      className="scenario-map"
+      ref={host}
+      aria-label={
+        simulation
+          ? "Closed road and affected road network"
+          : "Selectable road network map"
+      }
+    />
+  );
+}
+function ImpactChart({ simulation }: { simulation: PlannerSimulation }) {
+  const chartData = simulation.timeline.map((point) => ({
+    date: new Date(2026, 0, point.day + 1),
+    label: point.label,
+    day: point.day,
+    baseline: simulation.road.baselineMinutes,
+    simulated: simulation.road.baselineMinutes + point.delay,
+  }));
+  return (
+    <div className="impact-chart">
+      <div className="chart-toolbar">
+        <div className="chart-legend">
+          <span className="baseline-key">Observed baseline</span>
+          <span className="simulated-key">Closure scenario</span>
+        </div>
+      </div>
+      <LineChart data={chartData} xDataKey="date" aspectRatio="2.35 / 1" margin={{ top: 14, right: 12, bottom: 12, left: 8 }}>
+        <Grid horizontal vertical={false} numTicksRows={5} stroke="#cbd4d0" strokeDasharray="3,4" />
+        <Line dataKey="baseline" stroke="#315c51" strokeWidth={2.5} fadeEdges={false} dashFromIndex={0} dashArray="5,4" />
+        <Line dataKey="simulated" stroke="#b34b3f" strokeWidth={3} fadeEdges={false} showMarkers markers={{ radius: 4, fill: "#b34b3f", stroke: "#fff", strokeWidth: 2 }} />
+        <ChartTooltip showDatePill={false} rows={(point) => [
+          { color: "#315c51", label: "Observed baseline", value: `${point.baseline} min` },
+          { color: "#b34b3f", label: `${point.label} · Day ${point.day}`, value: `${point.simulated} min` },
+        ]} />
+      </LineChart>
+      <div className="chart-axis">
+        {simulation.timeline.map((point) => (
+          <span key={point.label}>
+            {point.label}
+            <small>Day {point.day}</small>
+          </span>
+        ))}
+      </div>
+      <div className="chart-values">
+        <span>{simulation.road.baselineMinutes} min baseline</span>
+        <strong>{simulation.simulatedMinutes} min peak</strong>
+      </div>
+    </div>
+  );
+}
+function Result({
+  roadId,
+  duration,
+  back,
+  home,
+}: {
+  roadId: string;
+  duration: string;
+  back: () => void;
+  home: () => void;
+}) {
+  const simulation = simulateClosure(roadId, duration);
+  const [showNotice, setShowNotice] = useState(true);
+  return (
+    <>
+      <AppHeader
+        title="Scenario result"
+        subtitle={`${simulation.road.name} · ${duration}`}
+        onBack={back}
+        onHome={home}
+      />
+      <main className="page detail scenario-result">
+        {showNotice && (
+          <div className="simulation-notice" role="status">
+            <span>
+              <strong>Simulation complete</strong>
+              <small>
+                {simulation.road.name} · {duration} closure
+              </small>
+            </span>
+            <button
+              onClick={() => setShowNotice(false)}
+              aria-label="Dismiss simulation notice"
+            >
+              <X />
+            </button>
+          </div>
+        )}
+        <section className="scenario-heading">
+          <span>SCENARIO</span>
+          <h1>{simulation.road.name}</h1>
+          <p>{duration} full closure · deterministic network estimate</p>
+        </section>
+        <ScenarioMap selected={simulation.road.id} simulation={simulation} />
+        <div className="scenario-compare">
+          <span>
+            OBSERVED<strong>{simulation.road.baselineMinutes} min</strong>
+            <small>{simulation.road.baselineLevel} baseline</small>
+          </span>
+          <ArrowRight />
+          <span>
+            SIMULATED PEAK<strong>{simulation.simulatedMinutes} min</strong>
+            <small>+{simulation.delay} min delay</small>
+          </span>
+        </div>
+        <section className="network-impact">
+          <SectionHeader title="Connected network impact" />
+          <ul>
+            {simulation.affected.map((item) => (
+              <li key={item.segment.id}>
+                <span>
+                  <strong>{item.segment.name}</strong>
+                  <small>
+                    +{item.additionalVehicles} vehicles/hr · +{item.delay} min
+                  </small>
+                </span>
+                <b data-impact={item.severity.toLowerCase()}>{item.severity}</b>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="timeline-section">
+          <SectionHeader title="Baseline vs closure period" />
+          <ImpactChart simulation={simulation} />
+        </section>
+        <section className="bus-impact">
+          <BusFront />
+          <div>
+            <span>BUS IMPACT</span>
+            <strong>{simulation.busRoutes.join(", ")}</strong>
+            <small>
+              Routes using the closed corridor or a connected transfer segment
+            </small>
+          </div>
+        </section>
+        <section className="data-basis">
+          <span>DATA BASIS · {simulation.confidence.toUpperCase()}</span>
+          <strong>
+            {simulation.road.observedPasses.toLocaleString()} fleet passes
+          </strong>
+          <p>
+            Planning estimate based on observed traffic, segment capacity and
+            network connectivity. It is not a citywide prediction.
+          </p>
+        </section>
+      </main>
+    </>
+  );
+}

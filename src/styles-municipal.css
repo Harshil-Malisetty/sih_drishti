@@ -44,11 +44,7 @@
 .observation-trend header > span,.geographic-pressure header > span { color: #697671; font-size: 8px; font-weight: 800; }
 .observation-trend header strong { color: #315c51; font-size: 12px; }
 .observation-trend header small { color: var(--muted); font-size: 7px; font-weight: 500; }
-.observation-trend svg { display: block; width: 100%; height: 112px; margin-top: 8px; overflow: visible; }
-.observation-trend polyline { fill: none; stroke: #315c51; stroke-width: 2.4; vector-effect: non-scaling-stroke; }
-.observation-trend circle { fill: #315c51; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.observation-trend .overview-grid { stroke: #d7dfdc; stroke-width: .6; vector-effect: non-scaling-stroke; }
-.observation-trend footer { display: flex; justify-content: space-between; color: var(--muted); font-size: 7px; }
+.observation-trend > div { margin-top: 8px; }
 .geographic-pressure { padding: 14px; }
 .geographic-pressure header button { display: flex; align-items: center; gap: 3px; border: 0; background: none; color: #315c51; font-size: 8px; font-weight: 800; }
 .geographic-pressure header svg { width: 11px; }
@@ -108,43 +104,11 @@
 
 .lifecycle-plot {
   position: relative;
-  height: 220px;
+  min-height: 190px;
   margin: 8px 14px 0 35px;
-  border-left: 1px solid #8c9994;
-  border-bottom: 1px solid #8c9994;
 }
 
-.lifecycle-plot svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.lifecycle-plot .grid-line {
-  stroke: #dfe5e2;
-  stroke-width: .6;
-  vector-effect: non-scaling-stroke;
-}
-
-.lifecycle-plot .threshold-line {
-  stroke: #b84940;
-  stroke-width: 1.5;
-  stroke-dasharray: 5 4;
-  vector-effect: non-scaling-stroke;
-}
-
-.trend-casing,
-.trend-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.trend-casing { stroke: #fff; stroke-width: 8; }
-.trend-line { stroke: #866126; stroke-width: 4; }
+.lifecycle-plot > div { min-height: 190px; }
 
 .threshold-label {
   position: absolute;
@@ -169,77 +133,19 @@
   text-align: center;
 }
 
-.severity-scale {
-  position: absolute;
-  left: -30px;
-  inset-block: 8px 5px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 7px;
-}
-
-.lifecycle-point {
-  position: absolute;
-  z-index: 3;
-  width: 30px;
-  height: 30px;
-  transform: translate(-50%,-50%);
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-}
-
-.lifecycle-point i {
-  display: block;
-  width: 13px;
-  height: 13px;
-  margin: auto;
-  border: 3px solid #fff;
-  border-radius: 50%;
-  background: #866126;
-  box-shadow: 0 0 0 1px #866126;
-}
-
-.lifecycle-point.active i {
-  width: 18px;
-  height: 18px;
-  background: #b84940;
-  box-shadow: 0 0 0 2px #b84940;
-}
-
-.lifecycle-point span {
-  position: absolute;
-  top: 27px;
-  left: 50%;
-  width: 48px;
-  transform: translateX(-50%);
-  color: #4e5b57;
-  font-size: 8px;
-  font-weight: 700;
-}
-
-.lifecycle-point.current:after {
-  content: 'CURRENT';
-  position: absolute;
-  bottom: 26px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #a43f38;
-  font-size: 7px;
-  font-weight: 800;
-}
-
 .lifecycle-dates {
   display: grid;
   grid-template-columns: repeat(4,1fr);
-  margin: 5px 14px 12px 35px;
+  gap: 4px;
+  margin: 4px 14px 12px 35px;
   color: var(--muted);
-  font-size: 7px;
   text-align: center;
 }
+
+.lifecycle-dates button { min-width: 0; padding: 6px 2px; border: 1px solid transparent; background: #f4f7f5; color: #53625d; cursor: pointer; }
+.lifecycle-dates button.active { border-color: #866126; background: #f5efe4; color: #704d18; }
+.lifecycle-dates strong,.lifecycle-dates span { display: block; font-size: 7px; }
+.lifecycle-dates strong { margin-bottom: 2px; font-size: 8px; }
 
 .lifecycle-evidence {
   display: grid;
@@ -331,24 +237,6 @@
   gap: 12px;
 }
 
-.impact-chart svg {
-  display: block;
-  width: 100%;
-  height: 190px;
-  overflow: visible;
-  border-left: 1px solid #9aa7a2;
-  border-bottom: 1px solid #9aa7a2;
-}
-
-.closure-window { fill: #f4e8e2; }
-.impact-grid { stroke: #cbd4d0; stroke-width: .6; vector-effect: non-scaling-stroke; }
-.baseline-line,.simulated-line { fill: none; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
-.baseline-line { stroke: #315c51; stroke-dasharray: 5 4; }
-.simulated-line { stroke: #b34b3f; }
-.impact-point { fill: #b34b3f; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.impact-point { cursor: pointer; outline: none; transition: r .16s ease, stroke-width .16s ease; }
-.impact-point.active,.impact-point:focus { r: 3.2px; stroke-width: 2; }
-
 .chart-legend {
   display: flex;
   gap: 12px;
@@ -367,21 +255,6 @@
 }
 
 .chart-legend .simulated-key:before { background: #b34b3f; }
-
-.chart-tooltip {
-  display: flex;
-  min-width: 110px;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  background: #fff;
-  box-shadow: 0 3px 12px #263b3514;
-  color: var(--muted);
-  font-size: 7px;
-}
-
-.chart-tooltip strong { color: var(--ink); font-size: 11px; }
 
 .chart-axis,.chart-values {
   display: flex;
@@ -409,7 +282,6 @@
 @media (max-width: 430px) {
   .operations-brief { grid-template-columns: 1fr; }
   .observation-trend { border-right: 0; border-bottom: 1px solid var(--line); }
-  .observation-trend svg { height: 104px; }
   .municipal-actions { grid-template-columns: 1fr; }
   .municipal-actions button { min-height: 62px; border-right: 0; border-bottom: 1px solid var(--line); }
   .municipal-actions button:last-child { border-bottom: 0; }
@@ -549,7 +421,6 @@
   .planning-instruction span { text-align: left; }
   .planning-page .scenario-map { min-height: 310px; }
   .scenario-result .scenario-map { min-height: 330px; }
-  .impact-chart svg { height: 165px; }
   .chart-axis { gap: 2px; }
   .chart-axis span { font-size: 7px; overflow-wrap: anywhere; }
 }
