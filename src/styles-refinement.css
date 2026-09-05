@@ -103,6 +103,9 @@
   line-height: 1.15;
   letter-spacing: -.035em;
 }
+/* Keep the screen-entry focus announcement without a browser outline on static text.
+   Interactive controls retain their visible keyboard focus indicators. */
+.landing #landing-title:focus { outline:none; }
 .landing .hero-summary { max-width:360px;font-size:15px;line-height:1.6;color:#52645c;margin:0 0 24px; }
 .landing .workspace-caption { margin:6px 0 18px;color:var(--muted);font-size:12px;line-height:1.5; }
 .landing .role-section > div:first-child { display:block; }
