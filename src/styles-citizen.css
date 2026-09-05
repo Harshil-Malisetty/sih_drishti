@@ -1,7 +1,7 @@
 .citizen { --green: #245b78; }
 .citizen-journey { background: #fff; }
 .journey-search { padding: 16px; }
-.journey-search,.journey-sheet,.journey-sheet h3 { scroll-margin-top:88px; }
+.journey-search,.journey-sheet,.journey-sheet h3 { scroll-margin-top:calc(88px + env(safe-area-inset-top)); }
 .journey-heading,.journey-sheet-heading { display:flex;align-items:center;justify-content:space-between;gap:12px; }
 .journey-heading h1 { font-size:22px;line-height:1.25;letter-spacing:-.025em;margin:0 0 8px; }
 .journey-heading .icon-btn { background:#eef3f6;border-radius:6px;flex-shrink:0; }

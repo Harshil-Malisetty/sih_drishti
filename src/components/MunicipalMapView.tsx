@@ -29,7 +29,7 @@ export function MunicipalMapView({markers,selected,initialView,onSelect,onViewCh
   if(!container.current||map.current)return;
   // Keep zoom immediate: a record/layer change may unmount this map at any time.
   map.current=L.map(container.current,{zoomControl:false,attributionControl:true,zoomAnimation:false}).setView(initialView?.center||[13.005,80.238],initialView?.zoom||12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).on('tileerror',()=>setTileError(true)).addTo(map.current);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19}).on('tileerror',()=>setTileError(true)).addTo(map.current);
   L.control.zoom({position:'topright'}).addTo(map.current);
   markerLayer.current=L.layerGroup().addTo(map.current);
   const saveView=()=>{const center=map.current?.getCenter();if(center&&map.current)onViewChangeRef.current({center:[center.lat,center.lng],zoom:map.current.getZoom()})};

@@ -7,6 +7,8 @@ import { navigation } from './navigation/config';
 import type { Role } from './types';
 import { BottomNavigation, LoadingState, SessionActionsProvider } from './components/ui';
 import { ActionFeedbackProvider } from './components/ActionFeedback';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { persistRole, savedRole } from './lib/demoSession';
 const PolicePages = lazy(() => import('./pages/PolicePages'));
 const MunicipalPages = lazy(() => import('./pages/MunicipalOperations'));
 const CitizenPages = lazy(() => import('./pages/CitizenPages'));
@@ -20,13 +22,8 @@ const roleDetails = {
  citizen: { label: 'Citizen', workspace: 'Citizen Mobility', sub: 'Traffic & Mobility', identity: 'CITIZEN-032', Icon: CitizenIcon }
 };
 
-function savedRole(): WorkspaceRole | null {
- const value = localStorage.getItem('drishti-demo-session');
- return value === 'police' || value === 'municipal' || value === 'citizen' ? value : null;
-}
-
 export default function App(){
- return <ActionFeedbackProvider><Suspense fallback={<main aria-busy="true"><LoadingState/></main>}><AppScreens/></Suspense></ActionFeedbackProvider>;
+ return <AppErrorBoundary><ActionFeedbackProvider><Suspense fallback={<main aria-busy="true"><LoadingState/></main>}><AppScreens/></Suspense></ActionFeedbackProvider></AppErrorBoundary>;
 }
 
 function AppScreens(){
@@ -34,6 +31,7 @@ function AppScreens(){
  const [pendingRole,setPendingRole]=useState<WorkspaceRole|null>(null);
  const [screen,setScreen]=useState<Screen>(()=>role?'workspace':'landing');
  const [page,setPage]=useState(()=>role==='citizen'?'map':'overview');
+ const [citizenNavigationVersion,setCitizenNavigationVersion]=useState(0);
  const [confirmLogout,setConfirmLogout]=useState(false);
  useEffect(()=>{document.title=role&&screen==='workspace'?`Drishti · ${roleDetails[role].workspace}`:'Drishti — City Intelligence'},[role,screen]);
 
@@ -52,16 +50,17 @@ function AppScreens(){
  },[screen]);
 
  const selectRole=(selected:WorkspaceRole)=>{setPendingRole(selected);setScreen('signin');history.pushState({screen:'signin',pendingRole:selected},'')};
- const signIn=()=>{if(!pendingRole)return;localStorage.setItem('drishti-demo-session',pendingRole);setRole(pendingRole);setPage(pendingRole==='citizen'?'map':'overview');setScreen('workspace');history.replaceState({screen:'workspace'},'')};
+ const signIn=()=>{if(!pendingRole)return;persistRole(pendingRole);setRole(pendingRole);setPage(pendingRole==='citizen'?'map':'overview');setScreen('workspace');history.replaceState({screen:'workspace'},'')};
  const backToLanding=()=>{if(history.state?.screen==='signin')history.back();else{setPendingRole(null);setScreen('landing');history.replaceState({screen:'landing'},'')}};
- const logout=()=>{localStorage.removeItem('drishti-demo-session');setConfirmLogout(false);setRole(null);setPendingRole(null);setScreen('landing');setPage('overview');history.replaceState({screen:'landing'},'')};
+ const logout=()=>{persistRole(null);setConfirmLogout(false);setRole(null);setPendingRole(null);setScreen('landing');setPage('overview');history.replaceState({screen:'landing'},'')};
 
  if(screen==='landing'||!role&&screen==='workspace')return <Landing enter={selectRole}/>;
  if(screen==='signin'&&pendingRole)return <SignIn role={pendingRole} onBack={backToLanding} onSubmit={signIn}/>;
  if(!role)return <Landing enter={selectRole}/>;
  const items=navigation[role];
- const changePrimaryPage=(nextPage:string)=>{if(role==='municipal')window.dispatchEvent(new Event('workspace-home'));setPage(nextPage)};
- return <SessionActionsProvider onLogout={()=>setConfirmLogout(true)} onHome={()=>{window.dispatchEvent(new Event('workspace-home'));setPage(role==='citizen'?'map':'overview')}}><div className={`app-shell ${role}`}>{role==='police'?<PolicePages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:role==='municipal'?<MunicipalPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:<CitizenPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>}<BottomNavigation items={items} active={page} onChange={changePrimaryPage}/>{confirmLogout&&<LogoutDialog role={role} onCancel={()=>setConfirmLogout(false)} onConfirm={logout}/>}</div></SessionActionsProvider>
+ const navigateCitizen=(nextPage:string)=>{setPage(nextPage);setCitizenNavigationVersion(version=>version+1)};
+ const changePrimaryPage=(nextPage:string)=>{if(role==='municipal')window.dispatchEvent(new Event('workspace-home'));if(role==='citizen')navigateCitizen(nextPage);else setPage(nextPage)};
+ return <SessionActionsProvider onLogout={()=>setConfirmLogout(true)} onHome={()=>{window.dispatchEvent(new Event('workspace-home'));if(role==='citizen')navigateCitizen('map');else setPage('overview')}}><div className={`app-shell ${role}`}>{role==='police'?<PolicePages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:role==='municipal'?<MunicipalPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:<CitizenPages page={page} navigationVersion={citizenNavigationVersion} navigate={navigateCitizen} exit={()=>setConfirmLogout(true)}/>}<BottomNavigation items={items} active={page} onChange={changePrimaryPage}/>{confirmLogout&&<LogoutDialog role={role} onCancel={()=>setConfirmLogout(false)} onConfirm={logout}/>}</div></SessionActionsProvider>
 }
 
 function BrandHeader({entrance}:{entrance?:Variants}){

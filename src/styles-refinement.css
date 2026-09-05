@@ -49,7 +49,14 @@
 .report-receipt dd { margin:0;overflow-wrap:anywhere; }
 .report-receipt .primary { margin-top:12px; }
 .product-dialog .operation-form > small { color:var(--muted);line-height:1.5;font-size:12px; }
-@media(max-width:600px) { .operation-form :is(input,select,textarea),.assignment-form select,.form select { font-size:16px; } }
+/* Higher specificity survives lazy-loaded operational font shorthands.
+   Keep browser zoom enabled; prevent only iOS's small-input focus zoom. */
+@media(max-width:600px), (pointer:coarse) {
+  :is(.app-shell,.product-dialog) .operation-form :is(input,select,textarea),
+  .app-shell .assignment-form select,.app-shell .form select,.sign-in .signin-panel input { font-size:16px; }
+  .app-shell .form select { min-height:44px; }
+  .simulation-notice button,.geographic-pressure header button { min-width:44px;min-height:44px; }
+}
 :where(button, a, input, select, textarea, summary):focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
@@ -170,3 +177,20 @@ dialog.logout-dialog::backdrop { background: #17232180; }
   .action-feedback,.signin-panel,.report-receipt { animation: none; }
   .landing *, .sign-in *, .logout-dialog, .filterbar button, .bottom-nav button { transition: none; scroll-behavior: auto; }
 }
+
+/* Safe-area-only changes preserve the existing zero-inset browser layout. */
+.app-shell { overflow:clip; }
+.app-shell,.landing,.sign-in,.bottom-nav {
+  padding-left:env(safe-area-inset-left);
+  padding-right:env(safe-area-inset-right);
+}
+.app-shell:has(.police-workflow) { padding-bottom:env(safe-area-inset-bottom); }
+.map-page,.citizen-map { height:calc(100dvh - 142px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.police-workflow > .map-page { height:calc(100dvh - 68px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.product-dialog,dialog.logout-dialog {
+  inset:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  max-width:calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+dialog.logout-dialog { max-width:calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right));max-height:calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.action-feedback-region { max-width:calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)); }

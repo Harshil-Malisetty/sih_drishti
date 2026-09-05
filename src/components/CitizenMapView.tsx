@@ -18,7 +18,7 @@ export function CitizenMapView({ routes, selected, select, origin, destination, 
     if (!host.current) return;
     const instance = L.map(host.current, { zoomControl: false, scrollWheelZoom: false, zoomAnimation: false }).setView([13.03, 80.24], 13);
     map.current = instance;
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).on('tileerror', () => setTileError(true)).addTo(instance);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19 }).on('tileerror', () => setTileError(true)).addTo(instance);
     L.control.zoom({ position: 'topright' }).addTo(instance);
     layer.current = L.layerGroup().addTo(instance);
     const observer = new ResizeObserver(() => instance.invalidateSize({ pan: false })); observer.observe(host.current);

@@ -9,7 +9,7 @@ import { CitizenMapView } from '../components/CitizenMapView';
 import { CitizenReportForm, Modal } from '../components/CitizenReports';
 import '../styles-citizen.css';
 
-export default function CitizenPages({ page, navigate, exit }: { page: string; navigate: (page: string) => void; exit: () => void }) {
+export default function CitizenPages({ page, navigationVersion, navigate, exit }: { page: string; navigationVersion: number; navigate: (page: string) => void; exit: () => void }) {
   const { state, mobility } = useCityData();
   const [originId, setOrigin] = useState(journeyPlaces[0].id);
   const [destinationId, setDestination] = useState(journeyPlaces[1].id);
@@ -36,7 +36,7 @@ export default function CitizenPages({ page, navigate, exit }: { page: string; n
   useEffect(() => {
     const target = page === 'routes' ? routeSection.current : page === 'alerts' ? conditionsHeading.current : searchSection.current;
     target?.scrollIntoView({ block: 'start' });
-  }, [page]);
+  }, [page, navigationVersion]);
   useEffect(() => () => { request.current?.abort(); requestVersion.current++; locationVersion.current++; }, []);
   useEffect(() => { setSelected(id => evaluated.find(route => route.id === id)?.blocked && recommended ? recommended.id : id); }, [evaluated]);
   useEffect(() => { if (projectId && !project) setProject(undefined); }, [projectId, project]);

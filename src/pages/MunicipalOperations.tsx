@@ -685,15 +685,16 @@ function ScenarioMap({
     map = useRef<L.Map | null>(null),
     layer = useRef<L.LayerGroup | null>(null);
   const fittedGeometry = useRef('');
+  const [tileError, setTileError] = useState(false);
   useEffect(() => {
     if (!host.current || map.current) return;
     map.current = L.map(host.current, { zoomControl: false, zoomAnimation: false }).setView(
       [13.02, 80.239],
       13,
     );
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors",
-    }).addTo(map.current);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).on('tileerror', () => setTileError(true)).addTo(map.current);
     L.control.zoom({ position: 'topright' }).addTo(map.current);
     layer.current = L.layerGroup().addTo(map.current);
     return () => {
@@ -772,7 +773,7 @@ function ScenarioMap({
     }
   }, [selected, onSelect, simulation]);
   return (
-    <div
+    <><div
       className="scenario-map"
       ref={host}
       aria-label={
@@ -780,7 +781,7 @@ function ScenarioMap({
           ? "Closed road and affected road network"
           : "Selectable road network map"
       }
-    />
+    />{tileError && <p className="journey-note" role="status">Basemap unavailable. Road selection and simulation details remain available.</p>}</>
   );
 }
 function ImpactChart({ simulation }: { simulation: PlannerSimulation }) {
