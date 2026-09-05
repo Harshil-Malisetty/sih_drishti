@@ -127,7 +127,7 @@
 .signin-panel .signin-session-note { margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:12px; }
 .signin-back,.signin-panel .primary { transition:background-color 140ms ease; }
 .landing .role-card:active { background:#edf2ef; }
-.landing .hero,.signin-panel,.report-receipt { animation:entry-reveal 180ms ease-out; }
+.signin-panel,.report-receipt { animation:entry-reveal 180ms ease-out; }
 @keyframes entry-reveal { from { opacity:0;transform:translateY(4px); } to { opacity:1;transform:translateY(0); } }
 @media(min-width:800px) {
   .landing { display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto 1fr auto;max-width:1040px; }
@@ -167,6 +167,6 @@ dialog.logout-dialog::backdrop { background: #17232180; }
 :is(.lifecycle-plot, .impact-chart) > .relative.w-full { touch-action: pan-y pinch-zoom !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .action-feedback,.landing .hero,.signin-panel,.report-receipt { animation: none; }
+  .action-feedback,.signin-panel,.report-receipt { animation: none; }
   .landing *, .sign-in *, .logout-dialog, .filterbar button, .bottom-nav button { transition: none; scroll-behavior: auto; }
 }

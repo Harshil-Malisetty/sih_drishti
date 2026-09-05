@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type SVGProps } from 'react';
 import { ArrowLeft, ArrowRight, BusFront, ChevronRight, Cpu, Network } from 'lucide-react';
+import { LazyMotion, domAnimation, useReducedMotion, type Variants } from 'motion/react';
+import * as m from 'motion/react-m';
 import drishtiLogo from './assets/drishti_logo.png';
 import { navigation } from './navigation/config';
 import type { Role } from './types';
@@ -62,26 +64,36 @@ function AppScreens(){
  return <SessionActionsProvider onLogout={()=>setConfirmLogout(true)} onHome={()=>{window.dispatchEvent(new Event('workspace-home'));setPage(role==='citizen'?'map':'overview')}}><div className={`app-shell ${role}`}>{role==='police'?<PolicePages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:role==='municipal'?<MunicipalPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:<CitizenPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>}<BottomNavigation items={items} active={page} onChange={changePrimaryPage}/>{confirmLogout&&<LogoutDialog role={role} onCancel={()=>setConfirmLogout(false)} onConfirm={logout}/>}</div></SessionActionsProvider>
 }
 
-function BrandHeader(){return <header><img className="brand-logo" src={drishtiLogo} alt=""/><div><strong>DRISHTI</strong><small>AI-Powered Mobile Urban Intelligence</small></div><span className="demo">DEMO</span></header>}
+function BrandHeader({entrance}:{entrance?:Variants}){
+ const content=<><img className="brand-logo" src={drishtiLogo} alt=""/><div><strong>DRISHTI</strong><small>AI-Powered Mobile Urban Intelligence</small></div><span className="demo">DEMO</span></>;
+ // Only Landing supplies variants; demo sign-in keeps its existing static header.
+ return entrance?<m.header variants={entrance} custom={0}>{content}</m.header>:<header>{content}</header>;
+}
 
 function Landing({enter}:{enter:(r:WorkspaceRole)=>void}){
  const roles=(Object.keys(roleDetails) as WorkspaceRole[]).map(id=>({id,...roleDetails[id]}));
  const title=useRef<HTMLHeadingElement>(null);
+ const reduceMotion=useReducedMotion()!==false;
+ const reveal:Variants={
+   hidden:{opacity:0,y:6},
+   visible:(delay:number=0)=>({opacity:1,y:0,transition:{type:'tween',duration:reduceMotion?0:.24,delay:reduceMotion?0:delay,ease:[.22,1,.36,1]}})
+ };
  useEffect(()=>{title.current?.focus({preventScroll:true});window.scrollTo(0,0)},[]);
- return <main className="landing"><BrandHeader/>
+ // Scope Motion to this screen, without layout/drag features or navigation delays.
+ return <LazyMotion features={domAnimation} strict><m.main className="landing" initial={reduceMotion?false:'hidden'} animate="visible"><BrandHeader entrance={reveal}/>
   <section className="hero" aria-labelledby="landing-title">
-   <h1 id="landing-title" ref={title} tabIndex={-1}>One fleet. A city of insights.</h1>
-   <p className="hero-summary">Every bus becomes an intelligent moving sensor for the city.</p>
+    <m.h1 id="landing-title" ref={title} tabIndex={-1} variants={reveal} custom={.04}>One fleet. A city of insights.</m.h1>
+    <m.p className="hero-summary" variants={reveal} custom={.11}>Every bus becomes an intelligent moving sensor for the city.</m.p>
    <div className="intelligence-flow" aria-label="From bus cameras to city services">
-   <ol><li><BusFront aria-hidden="true"/><span>Bus cameras</span></li><li><ArrowRight aria-hidden="true"/><Cpu aria-hidden="true"/><span>Edge AI</span></li><li><ArrowRight aria-hidden="true"/><Network aria-hidden="true"/><span>City intelligence</span></li></ol>
-    <div className="intelligence-audiences"><span>Police</span><span>Municipal</span><span>Citizens</span></div>
+    <ol><m.li variants={reveal} custom={.18}><BusFront aria-hidden="true"/><span>Bus cameras</span></m.li><m.li variants={reveal} custom={.25}><ArrowRight aria-hidden="true"/><Cpu aria-hidden="true"/><span>Edge AI</span></m.li><m.li variants={reveal} custom={.32}><ArrowRight aria-hidden="true"/><Network aria-hidden="true"/><span>City intelligence</span></m.li></ol>
+      <m.div className="intelligence-audiences" variants={reveal} custom={.39}><span>Police</span><span>Municipal</span><span>Citizens</span></m.div>
    </div>
   </section>
    <section className="role-section" aria-labelledby="workspace-title"><div><h2 id="workspace-title">Select your workspace</h2><p className="workspace-caption">Three roles. One shared city view.</p></div>
-   <div className="role-list">{roles.map(({id,label,sub,Icon})=><button type="button" className={`role-card role-card--${id}`} onClick={()=>enter(id)} key={id}><i><Icon/></i><div><strong>{label}</strong><span>{sub}</span></div><ChevronRight aria-hidden="true"/></button>)}</div>
+    <div className="role-list">{roles.map(({id,label,sub,Icon})=><m.button type="button" className={`role-card role-card--${id}`} onClick={()=>enter(id)} key={id} initial={false} animate={{x:0}} whileHover={{x:reduceMotion?0:2}} whileTap={{x:reduceMotion?0:1}} transition={{type:'tween',duration:reduceMotion?0:.14,ease:'easeOut'}}><i><Icon/></i><div><strong>{label}</strong><span>{sub}</span></div><ChevronRight aria-hidden="true"/></m.button>)}</div>
   </section>
   <footer><span>Simulated data · No account needed</span><b>Demo environment</b></footer>
- </main>;
+ </m.main></LazyMotion>;
 }
 
 function SignIn({role,onBack,onSubmit}:{role:WorkspaceRole;onBack:()=>void;onSubmit:()=>void}){
