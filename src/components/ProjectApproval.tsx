@@ -27,7 +27,7 @@ function ApprovalForm({ project, scenario }: { project: MunicipalProject; scenar
     <div className="operation-heading"><h2>Project approval</h2><span className="operation-state" role="status">{project.status}</span></div>
     {draft ? <form className="operation-form" onSubmit={e => {
       e.preventDefault();
-      void run(() => municipalService.approveProject(project.id, 'Municipal admin', { title: title.trim(), projectType }));
+      void run(() => municipalService.approveProject(project.id, 'Municipal admin', { title: title.trim(), projectType }), 'Project approved. Road-work notice published to Citizens.');
     }}>
       <label>Project title<input value={title} onChange={e => setTitle(e.target.value)} disabled={busy} required /></label>
       <label>Project type<select value={projectType} disabled={busy} onChange={e => setProjectType(e.target.value as MunicipalProject['projectType'])}><option>Road works</option><option>Resurfacing</option></select></label>
@@ -51,7 +51,7 @@ function ApprovalForm({ project, scenario }: { project: MunicipalProject; scenar
     {project.publishedAt && <p className="operation-meta">Published to Citizens · {formatDemoDate(project.publishedAt)} IST</p>}
     {project.status === 'Approved' && <p role="status"><strong>Citizen impact notice</strong><br/>{publicProject?.status === 'Active' ? 'Active: approved road restrictions and delays are now available in Citizen mobility.' : publicProject?.status === 'Completed' || expired ? 'Window ended: no active Citizen restriction remains.' : 'Scheduled: the approved project is published; restrictions apply during its saved start and end window.'}</p>}
     {project.status === 'Cancelled' && <p role="status">Project withdrawn · Citizen project notice and restrictions removed.</p>}
-    {project.status !== 'Cancelled' && <div className="operation-actions"><button className="secondary" disabled={busy} onClick={() => run(() => municipalService.cancelProject(project.id))}>Cancel project</button></div>}
+    {project.status !== 'Cancelled' && <div className="operation-actions"><button className="secondary" disabled={busy} onClick={() => { if (window.confirm('Cancel this project? Its Citizen road-work notice and restrictions will be withdrawn.')) void run(() => municipalService.cancelProject(project.id), { message: 'Project cancelled. Citizen restriction withdrawn.', tone: 'neutral' }); }}>Cancel project</button></div>}
     {error && <p role="alert">{error}</p>}
   </section>;
 }

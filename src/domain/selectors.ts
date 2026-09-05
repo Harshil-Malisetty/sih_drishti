@@ -192,7 +192,7 @@ function publicIssue(state: CityState, issue: MunicipalIssue): PublicCondition {
 }
 
 export function selectCitizenContext(state: CityState): CitizenMobilityContext & { conditions: PublicCondition[] } {
-  const conditions = Object.values(state.issues).map(issue => publicIssue(state, issue));
+  const conditions = Object.values(state.issues).filter(issue => !issue.citizenReportId || issue.workflowStage !== 'Detected').map(issue => publicIssue(state, issue));
   for (const incident of Object.values(state.incidents)) {
     if (!isActive(incident.status) || !/obstruction/i.test(incident.type) || byTime(incident.observedAt, state.now) > 0) continue;
     if (resolutionFor(state, { kind: 'incident', id: incident.id }).decision === 'Verified') continue;

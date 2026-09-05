@@ -17,13 +17,14 @@ export interface CityTrafficObservation extends TrafficObservation {
 }
 export interface CityBus extends Bus { roadSegmentId: string; observedAt: string }
 export interface CityIncident extends Incident { roadSegmentId: string; observedAt: string; resolvedAt?: string; emergencyDispatchId?: string; resolutionSummary?: string }
-export type IssueKind = 'pothole' | 'waterlogging' | 'zebra-crossing' | 'divider' | 'signboard' | 'guardrail' | 'school-crossing';
+export type IssueKind = 'pothole' | 'waterlogging' | 'obstruction' | 'zebra-crossing' | 'divider' | 'signboard' | 'guardrail' | 'school-crossing';
 export interface Department { id: string; name: string; role: 'municipal' | 'police' | 'response' }
 export interface Team { id: string; departmentId: string; name: string }
 export type EventRef = { kind: 'municipal'; id: string } | { kind: 'incident'; id: string } | { kind: 'anomaly'; id: string };
 export type WorkflowStage = 'Detected' | 'Qualified' | 'Assigned' | 'Acknowledged' | 'In progress' | 'Admin review' | 'Verified' | 'Closed';
 export interface WorkflowEntry { at: string; action: string; actor: string }
 export interface MunicipalIssue extends RoadDefect {
+  citizenReportId?: string;
   kind: IssueKind;
   roadSegmentId: string;
   departmentId: string;
@@ -99,6 +100,12 @@ export interface MunicipalTask {
   target: { kind: 'issue'; id: string } | { kind: 'scenario'; id: string };
 }
 export interface RouteLeg { roadSegmentId: string; fraction: number }
+export interface CitizenReportInput {
+  roadSegmentId: string; category: 'pothole' | 'waterlogging' | 'obstruction'; description: string; image: string;
+}
+export interface CitizenReport extends CitizenReportInput {
+  id: string; submittedAt: string; status: 'Pending' | 'Accepted' | 'Dismissed'; reviewNote?: string; issueId?: string;
+}
 export interface DemoJourney {
   id: string; origin: string; destination: string;
   current: RouteLeg[]; alternative: RouteLeg[]; viaSegmentId: string;
@@ -116,6 +123,7 @@ export interface CityState {
   dispatches: Record<string, PoliceDispatch>; scenarios: Record<string, PlanningScenario>;
   emergencyDispatches: Record<string, EmergencyDispatch>;
   projects: Record<string, MunicipalProject>; journey: DemoJourney;
+  citizenReports: Record<string, CitizenReport>;
 }
 export interface CitizenJourney extends Omit<CitizenRoute, 'currentMinutes' | 'alternativeMinutes'> {
   currentMinutes: number | null; alternativeMinutes: number | null;

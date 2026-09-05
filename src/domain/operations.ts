@@ -35,7 +35,8 @@ export function selectMunicipalTasks(state: CityState): MunicipalTask[] {
       tasks.push({ id: `public-${issue.id}`, kind: 'Citizen update', title: `${issue.defectType} — closed`, detail: `${issue.location} · Verified condition available to Citizens`, at, actionRequired: false, target });
     } else {
       const unassigned = ['Detected','Qualified'].includes(issue.workflowStage);
-      tasks.push({ id: `issue-${issue.id}`, kind: unassigned ? 'Assignment' : 'Field action', title: `${issue.defectType} — ${unassigned ? 'assignment required' : issue.workflowStage}`, detail: `${issue.location} · ${state.departments[issue.departmentId].name}`, at, actionRequired: unassigned, target });
+      const returned = review?.decision === 'Returned';
+      tasks.push({ id: `issue-${issue.id}`, kind: unassigned ? 'Assignment' : 'Field action', title: `${issue.defectType} — ${unassigned ? 'assignment required' : returned ? 'returned for action' : issue.workflowStage}`, detail: `${issue.location} · ${state.departments[issue.departmentId].name}${returned ? ` · ${review.note}` : ''}`, at, actionRequired: unassigned || returned, target });
     }
   }
   for (const project of Object.values(state.projects)) {

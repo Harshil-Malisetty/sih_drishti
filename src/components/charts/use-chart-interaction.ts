@@ -47,6 +47,7 @@ interface ChartInteractionResult {
     onTouchStart?: (event: React.TouchEvent<SVGGElement>) => void;
     onTouchMove?: (event: React.TouchEvent<SVGGElement>) => void;
     onTouchEnd?: () => void;
+    onTouchCancel?: () => void;
   };
   interactionStyle: React.CSSProperties;
 }
@@ -74,6 +75,8 @@ export function useChartInteraction({
   const isDraggingRef = useRef(false);
   const dragStartXRef = useRef<number>(0);
   const lastHoveredXRef = useRef<number | null>(null);
+  const touchOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const touchDirectionRef = useRef<'horizontal' | 'vertical' | null>(null);
 
   const resolveTooltipFromX = useCallback(
     (pixelX: number): TooltipData | null => {
@@ -227,8 +230,10 @@ export function useChartInteraction({
 
   const handleTouchStart = useCallback(
     (event: React.TouchEvent<SVGGElement>) => {
+      touchDirectionRef.current = null;
+      const touch = event.touches[0];
+      touchOriginRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
       if (event.touches.length === 1) {
-        event.preventDefault();
         const chartX = getChartX(event, 0);
         if (chartX === null) {
           return;
@@ -239,7 +244,6 @@ export function useChartInteraction({
           scheduleTooltip(tooltip);
         }
       } else if (event.touches.length === 2) {
-        event.preventDefault();
         resetTooltipDedupe();
         clearTooltip();
         const x0 = getChartX(event, 0);
@@ -271,7 +275,23 @@ export function useChartInteraction({
   const handleTouchMove = useCallback(
     (event: React.TouchEvent<SVGGElement>) => {
       if (event.touches.length === 1) {
-        event.preventDefault();
+        const origin = touchOriginRef.current;
+        const touch = event.touches[0];
+        if (!origin || !touch) return;
+        const dx = Math.abs(touch.clientX - origin.x);
+        const dy = Math.abs(touch.clientY - origin.y);
+        if (!touchDirectionRef.current && Math.max(dx, dy) >= 8) {
+          touchDirectionRef.current = dy >= dx ? 'vertical' : 'horizontal';
+        }
+        // Let the browser scroll vertically; horizontal scrubbing still reveals data.
+        // Never preventDefault in React's passive touch listeners.
+        if (touchDirectionRef.current === 'vertical') {
+          lastHoveredXRef.current = null;
+          clearTooltip();
+          setSelection(null);
+          return;
+        }
+        if (touchDirectionRef.current !== 'horizontal') return;
         const chartX = getChartX(event, 0);
         if (chartX === null) {
           return;
@@ -282,7 +302,6 @@ export function useChartInteraction({
           scheduleTooltip(tooltip);
         }
       } else if (event.touches.length === 2) {
-        event.preventDefault();
         const x0 = getChartX(event, 0);
         const x1 = getChartX(event, 1);
         if (x0 === null || x1 === null) {
@@ -299,10 +318,14 @@ export function useChartInteraction({
         });
       }
     },
-    [getChartX, resolveTooltipFromX, resolveIndexFromX, scheduleTooltip]
+    [getChartX, resolveTooltipFromX, resolveIndexFromX, scheduleTooltip, clearTooltip]
   );
 
   const handleTouchEnd = useCallback(() => {
+    touchOriginRef.current = null;
+    touchDirectionRef.current = null;
+    lastHoveredXRef.current = null;
+    isDraggingRef.current = false;
     clearTooltip();
     setSelection(null);
   }, [clearTooltip]);
@@ -333,12 +356,13 @@ export function useChartInteraction({
         onTouchStart: handleTouchStart,
         onTouchMove: handleTouchMove,
         onTouchEnd: handleTouchEnd,
+        onTouchCancel: handleTouchEnd,
       }
     : {};
 
   const interactionStyle: React.CSSProperties = {
     cursor: canInteract ? "crosshair" : "default",
-    touchAction: "none",
+    touchAction: "pan-y pinch-zoom",
   };
 
   return {

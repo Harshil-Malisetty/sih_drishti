@@ -1,6 +1,6 @@
 import { cityStore } from './city';
 import type { CityCommand } from '../domain/cityStore';
-import type { EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
+import type { CitizenReportInput, EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
 import { completionEvidence } from '../data/demo/operations';
 import { selectMunicipalTasks } from '../domain/operations';
 import { selectAssignment, selectCitizenAlerts, selectCitizenContext, selectCitizenRoute, selectIssues, selectPlannerRoads, selectPoliceSummary, selectTraffic, selectTrafficAnomalies, selectWatchlist } from '../domain/selectors';
@@ -20,6 +20,8 @@ export const watchlistService = {
 	decide: (matchId: string, decision: 'Verified' | 'Dismissed') => command({ type: 'decideMatch', matchId, decision }).then(state => structuredClone(state.watchlist[matchId])),
 };
 export const municipalService = {
+ getCitizenReports: () => query(() => Object.values(cityStore.getSnapshot().citizenReports)),
+ reviewCitizenReport: (reportId: string, decision: 'Accepted' | 'Dismissed', note: string) => command({ type: 'reviewCitizenReport', reportId, decision, note }).then(state => structuredClone(state.citizenReports[reportId])),
 	qualify: (issueId: string, actor: string) => command({ type: 'qualifyIssue', issueId, actor }).then(() => municipalService.getRoadDefect(issueId)),
 	close: (issueId: string, actor: string) => command({ type: 'closeIssue', issueId, actor }).then(() => municipalService.getRoadDefect(issueId)),
 	getTasks: () => query(() => selectMunicipalTasks(cityStore.getSnapshot())),
@@ -79,6 +81,7 @@ export const trafficService = {
 	getObservations: () => query(() => Object.values(cityStore.getSnapshot().trafficObservations)),
 };
 export const citizenService = {
+ submitReport: (input: CitizenReportInput) => command({ type: 'submitCitizenReport', input }).then(state => structuredClone(Object.values(state.citizenReports).at(-1)!)),
 	getMapData: () => query(() => ({ traffic: selectTraffic(cityStore.getSnapshot()), alerts: selectCitizenAlerts(cityStore.getSnapshot()) })),
 	getAlerts: () => query(() => selectCitizenAlerts(cityStore.getSnapshot())),
 	getMobilityContext: () => query(() => selectCitizenContext(cityStore.getSnapshot())),

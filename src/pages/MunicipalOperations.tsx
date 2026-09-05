@@ -12,7 +12,7 @@ import {
 import { useCityData } from "../services/useCityData";
 import { municipalService } from "../services";
 import { selectPlannerSimulation } from "../domain/planning";
-import type { PlannerRoadSegment, RoadDefect, Severity } from "../types";
+import type { RoadDefect, Severity } from "../types";
 import { DefectCard } from "../components/cards";
 import {
   AppHeader,
@@ -41,6 +41,9 @@ import { ProjectApproval } from "../components/ProjectApproval";
 import { EmergencyDispatchPanel } from "../components/EmergencyDispatchPanel";
 import { selectEventResolution } from "../domain/operations";
 import type { MunicipalTask } from "../types/city";
+import { MunicipalReportInbox } from "../components/CitizenReports";
+import { useOperation } from "../components/operations";
+import { formatDemoDate, formatDemoTime } from "../domain/time";
 
 type View =
   | { kind: "detail" | "lifecycle"; id: string }
@@ -58,6 +61,7 @@ export default function MunicipalOperations({
   const { defects, plannerRoadSegments } = useCityData();
   const [stack, setStack] = useState<View[]>([]);
   const [planningError, setPlanningError] = useState("");
+  const planningOperation = useOperation();
   const [issueFilter, setIssueFilter] = useState("All");
   const [mapFilter, setMapFilter] = useState<MunicipalLayer>("Road defects");
   const [mapSelected, setMapSelected] = useState(
@@ -70,17 +74,20 @@ export default function MunicipalOperations({
   const [planningRoad, setPlanningRoad] = useState(plannerRoadSegments[0].id);
   const [planningDuration, setPlanningDuration] = useState("8 weeks");
   const open = (view: View) => {
-    setStack((s) => [...s, view]);
-    history.pushState({ municipal: true }, "");
+    history.replaceState({ municipalViews: stack, primaryPage: page }, "");
+    const next = [...stack, view];
+    setStack(next);
+    history.pushState({ municipalViews: next, primaryPage: page }, "");
   };
   const back = () => history.back();
   const home = () => {
     setStack([]);
+    history.replaceState({ screen: 'workspace' }, '');
     navigate("overview");
   };
   useEffect(() => {
-    const pop = () => setStack((s) => s.slice(0, -1));
-    const reset = () => setStack([]);
+    const pop = (event: PopStateEvent) => { setStack(event.state?.municipalViews || []); if (event.state?.municipalViews && event.state.primaryPage) navigate(event.state.primaryPage); };
+    const reset = () => { setStack([]); history.replaceState({ screen: 'workspace' }, ''); };
     addEventListener("popstate", pop);
     addEventListener("workspace-home", reset);
     return () => {
@@ -120,7 +127,7 @@ export default function MunicipalOperations({
     <>
       <AppHeader
         title="Municipal Operations"
-        subtitle="Chennai Zone Network · Live"
+        subtitle="Chennai · Municipal operations"
         onHome={home}
         onExit={exit}
       />
@@ -155,15 +162,17 @@ export default function MunicipalOperations({
             duration={planningDuration}
             onRoad={setPlanningRoad}
             onDuration={setPlanningDuration}
+            busy={planningOperation.busy}
             run={() => {
               setPlanningError("");
-              void municipalService.runConstructionSimulation({ roadSegmentId: planningRoad, duration: planningDuration })
-                .then(scenario => open({ kind: "result", scenarioId: scenario.id }))
-                .catch(error => setPlanningError(error instanceof Error ? error.message : "Unable to run simulation"));
+              void planningOperation.run(async () => {
+                const scenario = await municipalService.runConstructionSimulation({ roadSegmentId: planningRoad, duration: planningDuration });
+                open({ kind: "result", scenarioId: scenario.id });
+              }, { message: 'What-if ready for review. Not published to Citizens.', tone: 'info' });
             }}
           />
         )}
-        {planningError && <p role="alert">{planningError}</p>}
+        {(planningError || planningOperation.error) && <p role="alert">{planningError || planningOperation.error}</p>}
       </main>
     </>
   );
@@ -181,12 +190,12 @@ function Overview({
 }) {
   const { defects, plannerRoadSegments } = useCityData();
   const openIssues = defects.filter((item) => item.workflowStage !== "Closed");
-  const criticalIssues = defects.filter((item) => item.severity === "Critical");
-  const infrastructureIssues = defects.filter(
+  const criticalIssues = openIssues.filter((item) => item.severity === "Critical");
+  const infrastructureIssues = openIssues.filter(
     (item) => item.category === "Infrastructure",
   );
   const pendingIssues = defects.filter(
-    (item) => item.status === "Pending Verification",
+    (item) => item.workflowStage === "Admin review",
   );
   const totalEvidence = defects.reduce(
     (total, item) => total + item.detectionCount,
@@ -212,9 +221,10 @@ function Overview({
   return (
     <div className="page municipal-overview">
       <PageIntro
-        eyebrow="MUNICIPAL OPERATIONS · LIVE REGISTER"
+        eyebrow="MUNICIPAL OPERATIONS"
         title="City Road Health"
       />
+      <MunicipalReportInbox openIssue={id => { const issue = defects.find(item => item.id === id); if (issue) open(issue); }}/>
       <div className="metric-grid compact operations-metrics">
         <MetricCard
           label="Open records"
@@ -244,7 +254,7 @@ function Overview({
       <div className="sensor-strip municipal">
         <BusFront />
         <div>
-          <strong>{totalEvidence} observations in the active register</strong>
+          <strong>{totalEvidence} historical observations in the register</strong>
           <span>
             {reportingBuses} buses · {defects.length} tracked locations
           </span>
@@ -265,6 +275,7 @@ function Overview({
             <BarXAxis maxLabels={4} tickerHalfWidth={34} />
             <ChartTooltip showDatePill={false} rows={(point) => [{ color: "#315c51", label: "Observed fleet passes", value: Number(point.passes) }]} />
           </BarChart>
+          <details className="chart-data"><summary>View coverage data</summary><table><thead><tr><th scope="col">Corridor</th><th scope="col">Observed passes</th></tr></thead><tbody>{corridorCoverage.map(item => <tr key={item.corridor}><th scope="row">{item.corridor}</th><td>{item.passes}</td></tr>)}</tbody></table></details>
         </div>
         <div className="geographic-pressure">
           <header>
@@ -330,14 +341,14 @@ function IssueList({
   open: (x: RoadDefect) => void;
   openTask: (target: MunicipalTask['target']) => void;
 }) {
-  const { defects } = useCityData();
+  const { defects, state } = useCityData();
   const visible = defects.filter(
     (x) => filter === "All" || x.category === filter,
   );
   return (
     <div className="page">
       <PageIntro
-        eyebrow="FLEET OBSERVATIONS · UPDATED 18:45"
+        eyebrow={`ROAD ISSUE REGISTER · UPDATED ${formatDemoTime(state.now)}`}
         title="Road & infrastructure"
       />
       <MunicipalTasks onOpen={openTask} />
@@ -403,7 +414,7 @@ function Detail({
         <div className="title-row">
           <div>
             <span className="eyebrow">
-              {x.category.toUpperCase()} · FLEET EVIDENCE
+              {x.category.toUpperCase()} · {x.citizenReportId ? 'CITIZEN REPORT' : 'FLEET EVIDENCE'}
             </span>
             <h1>{x.defectType}</h1>
             <p>
@@ -419,26 +430,26 @@ function Detail({
           />
           <span>LATEST EVIDENCE</span>
           <em>
-            {x.lastSeen} · {latest?.busId || x.busIds.at(-1)}
+            {x.citizenReportId ? `${formatDemoDate(x.lastSeen)} · Citizen photo` : `${x.lastSeen} · ${latest?.busId || x.busIds.at(-1)}`}
           </em>
         </div>
         <Surface className="detail-facts">
           <div>
-            <span>First observed</span>
-            <strong>{x.firstSeen}</strong>
+            <span>{x.citizenReportId ? 'Reported at' : 'First observed'}</span>
+            <strong>{x.citizenReportId ? formatDemoDate(x.firstSeen) : x.firstSeen}</strong>
           </div>
           <div>
             <span>Latest observation</span>
-            <strong>{x.lastSeen}</strong>
+            <strong>{x.citizenReportId ? formatDemoDate(x.lastSeen) : x.lastSeen}</strong>
           </div>
           <div>
             <span>Current status</span>
-            <strong>{x.status}</strong>
+            <strong>{x.workflowStage === 'Admin review' ? 'Resolved · awaiting admin review' : x.workflowStage}</strong>
           </div>
           <div>
-            <span>Fleet evidence</span>
+            <span>{x.citizenReportId ? 'Evidence source' : 'Fleet evidence'}</span>
             <strong>
-              {x.detectionCount} observations · {x.busIds.length} buses
+              {x.citizenReportId ? `Citizen photo · ${x.citizenReportId}` : `${x.detectionCount} observations · ${x.busIds.length} buses`}
             </strong>
           </div>
           <div>
@@ -554,7 +565,8 @@ function MunicipalMap({
           : "road",
     latitude: x.latitude,
     longitude: x.longitude,
-    label: `${x.defectType} · ${x.location}`,
+    label: `${x.defectType} · ${x.location} · ${x.workflowStage}`,
+    closed: x.workflowStage === 'Closed',
   }));
   const changeFilter = (value: string) => {
     const next = value as MunicipalLayer;
@@ -582,11 +594,11 @@ function MunicipalMap({
         <section className="bottom-sheet">
           <i className="handle" />
           <span className="sheet-eyebrow">
-            {item.severity.toUpperCase()} · {item.category.toUpperCase()}
+            {item.workflowStage === 'Closed' ? 'VERIFIED FIXED' : item.severity.toUpperCase()} · {item.category.toUpperCase()}
           </span>
           <h3>{item.defectType}</h3>
           <p>
-            {item.location} · {item.status}
+            {item.location} · {item.workflowStage}
           </p>
           <small>
             {item.detectionCount} observations · Last seen {item.lastSeen}
@@ -606,12 +618,14 @@ function Planning({
   onRoad,
   onDuration,
   run,
+  busy,
 }: {
   selected: string;
   duration: string;
   onRoad: (id: string) => void;
   onDuration: (value: string) => void;
   run: () => void;
+  busy: boolean;
 }) {
   const { plannerRoadSegments } = useCityData();
   const road =
@@ -637,6 +651,7 @@ function Planning({
         </small>
       </section>
       <Surface className="form">
+        <label>Road corridor<select value={selected} onChange={event => onRoad(event.target.value)} disabled={busy}>{plannerRoadSegments.map(segment => <option value={segment.id} key={segment.id}>{segment.name}</option>)}</select></label>
         <label>
           Closure / construction duration
           <select
@@ -649,7 +664,7 @@ function Planning({
             <option>4 months</option>
           </select>
         </label>
-        <button className="primary full" onClick={run}>
+        <button className="primary full" onClick={run} disabled={busy}>
           <Construction /> Run simulation
         </button>
       </Surface>
@@ -669,6 +684,7 @@ function ScenarioMap({
   const host = useRef<HTMLDivElement>(null),
     map = useRef<L.Map | null>(null),
     layer = useRef<L.LayerGroup | null>(null);
+  const fittedGeometry = useRef('');
   useEffect(() => {
     if (!host.current || map.current) return;
     map.current = L.map(host.current, { zoomControl: false }).setView(
@@ -678,11 +694,13 @@ function ScenarioMap({
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
     }).addTo(map.current);
+    L.control.zoom({ position: 'topright' }).addTo(map.current);
     layer.current = L.layerGroup().addTo(map.current);
     return () => {
       map.current?.remove();
       map.current = null;
       layer.current = null;
+      fittedGeometry.current = '';
     };
   }, []);
   useEffect(() => {
@@ -691,7 +709,8 @@ function ScenarioMap({
     const affectedById = new Map(
       simulation?.affected.map((item) => [item.segment.id, item]),
     );
-    plannerRoadSegments.forEach((road) => {
+    const displayedRoads = simulation ? [simulation.road, ...simulation.affected.map(item => item.segment)].filter((road, index, all) => all.findIndex(item => item.id === road.id) === index) : plannerRoadSegments;
+    displayedRoads.forEach((road) => {
       const active = road.id === selected;
       const affected = affectedById.get(road.id);
       const choose = () => onSelect?.(road.id);
@@ -743,10 +762,14 @@ function ScenarioMap({
     const relevant = simulation
       ? [simulation.road, ...simulation.affected.map((item) => item.segment)]
       : plannerRoadSegments;
-    map.current.fitBounds(
-      L.latLngBounds(relevant.flatMap((road) => road.points)),
-      { padding: [30, 30], maxZoom: 14, animate: false },
-    );
+    const geometryKey = JSON.stringify(relevant.map(road => [road.id, road.points]));
+    if (fittedGeometry.current !== geometryKey) {
+      map.current.fitBounds(
+        L.latLngBounds(relevant.flatMap((road) => road.points)),
+        { padding: [30, 30], maxZoom: 14, animate: false },
+      );
+      fittedGeometry.current = geometryKey;
+    }
   }, [selected, onSelect, simulation]);
   return (
     <div
@@ -762,9 +785,9 @@ function ScenarioMap({
 }
 function ImpactChart({ simulation }: { simulation: PlannerSimulation }) {
   const chartData = simulation.timeline.map((point) => ({
-    date: new Date(2026, 0, point.day + 1),
+    date: new Date(Date.UTC(2026, 8, 5) + point.day * 86_400_000),
     label: point.label,
-    day: point.day,
+    day: Number(point.day.toFixed(2)),
     baseline: simulation.road.baselineMinutes,
     simulated: simulation.road.baselineMinutes + point.delay,
   }));
@@ -772,7 +795,7 @@ function ImpactChart({ simulation }: { simulation: PlannerSimulation }) {
     <div className="impact-chart">
       <div className="chart-toolbar">
         <div className="chart-legend">
-          <span className="baseline-key">Observed baseline</span>
+          <span className="baseline-key">Historical baseline</span>
           <span className="simulated-key">Closure scenario</span>
         </div>
       </div>
@@ -781,15 +804,16 @@ function ImpactChart({ simulation }: { simulation: PlannerSimulation }) {
         <Line dataKey="baseline" stroke="#315c51" strokeWidth={2.5} fadeEdges={false} dashFromIndex={0} dashArray="5,4" />
         <Line dataKey="simulated" stroke="#b34b3f" strokeWidth={3} fadeEdges={false} showMarkers markers={{ radius: 4, fill: "#b34b3f", stroke: "#fff", strokeWidth: 2 }} />
         <ChartTooltip showDatePill={false} rows={(point) => [
-          { color: "#315c51", label: "Observed baseline", value: `${point.baseline} min` },
+          { color: "#315c51", label: "Historical baseline", value: `${point.baseline} min` },
           { color: "#b34b3f", label: `${point.label} · Day ${point.day}`, value: `${point.simulated} min` },
         ]} />
       </LineChart>
+      <details className="chart-data"><summary>View planning chart data</summary><p>Municipal planning indicators, not a traversable closed-road ETA.</p><table><thead><tr><th scope="col">Phase</th><th scope="col">Baseline min</th><th scope="col">Scenario min</th></tr></thead><tbody>{chartData.map(point => <tr key={point.day}><th scope="row">{point.label} · Day {point.day}</th><td>{point.baseline}</td><td>{point.simulated}</td></tr>)}</tbody></table></details>
       <div className="chart-axis">
         {simulation.timeline.map((point) => (
           <span key={point.label}>
             {point.label}
-            <small>Day {point.day}</small>
+            <small>Day {Number(point.day.toFixed(2))}</small>
           </span>
         ))}
       </div>
@@ -849,7 +873,7 @@ function Result({
         <ScenarioMap selected={simulation.road.id} simulation={simulation} />
         <div className="scenario-compare">
           <span>
-            OBSERVED<strong>{simulation.road.baselineMinutes} min</strong>
+            HISTORICAL<strong>{simulation.road.baselineMinutes} min</strong>
             <small>{simulation.road.baselineLevel} baseline</small>
           </span>
           <ArrowRight />

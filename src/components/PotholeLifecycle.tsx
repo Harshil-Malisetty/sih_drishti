@@ -29,10 +29,11 @@ export function ObservationProgression({defect}:{defect:RoadDefect}){
     <Grid horizontal vertical={false} numTicksRows={4} stroke="#dfe5e2" strokeDasharray="3,4" highlightRowValues={[threshold]} highlightRowStroke="#b84940" highlightRowStrokeDasharray="5,4"/>
     <Line dataKey="severity" stroke="#866126" strokeWidth={3} fadeEdges={false} showMarkers markers={{radius:4,fill:'#866126',stroke:'#fff',strokeWidth:2}}/>
     <XAxis numTicks={Math.min(observations.length,4)}/>
-    <ChartTooltip showDatePill={false} rows={point=>[{color:'#866126',label:String(point.label),value:`${point.severity}% severity`}]}/>
+    <ChartTooltip showDatePill={false} rows={point=>[{color:'#866126',label:String(point.label),value:`${point.severity} / 100 severity index`}]}/>
    </LineChart>
   </div>
-    <div className="lifecycle-dates" style={{gridTemplateColumns:`repeat(${observations.length}, minmax(0, 1fr))`}}>{observations.map((observation,index)=><button key={`${observation.day}-${observation.date}`} className={selectedIndex===index?'active':undefined} onClick={()=>setSelectedIndex(index)} onMouseEnter={()=>setSelectedIndex(index)}><strong>Day {observation.day}</strong><span>{observation.date}</span></button>)}</div>
+    <div className="lifecycle-dates" style={{gridTemplateColumns:`repeat(${observations.length}, minmax(0, 1fr))`}}>{observations.map((observation,index)=><button key={`${observation.day}-${observation.date}`} aria-pressed={selectedIndex===index} className={selectedIndex===index?'active':undefined} onClick={()=>setSelectedIndex(index)}><strong>Day {observation.day}</strong><span>{observation.date}</span></button>)}</div>
+  <details className="chart-data"><summary>View condition chart data</summary><p>Illustrative condition-severity index (0–100), not measured damage percentage.</p><table><thead><tr><th scope="col">Observation</th><th scope="col">Severity index</th></tr></thead><tbody>{chartData.map(point=><tr key={point.day}><th scope="row">Day {point.day} · {point.label}</th><td>{point.severity}</td></tr>)}</tbody></table></details>
   <div className="lifecycle-evidence" aria-live="polite">
    <div className="lifecycle-image"><img src={selected.image||defect.image} alt={`${selected.label} fleet observation`}/><span><Camera/> Day {selected.day} evidence</span></div>
     <div><span>{selected.date} · DAY {selected.day}{selectedIndex===observations.length-1?' · CURRENT STATE':''}</span><h3>{selected.label}</h3><p>{selected.detail}</p><small><BusFront/> {selected.busId} · observation {selectedIndex+1} of {observations.length}{selected.source?` · ${selected.source}`:''}</small></div>

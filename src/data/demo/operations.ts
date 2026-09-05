@@ -4,6 +4,7 @@ import type { IssueKind } from '../../types/city';
 // Operator-editable demo defaults, not inferred repair results. The illustration is explicitly labelled.
 export const completionEvidence = illustration;
 export const issueResolutionDefaults: Record<IssueKind, { summary: string; condition: string }> = {
+  obstruction: { summary: 'Obstruction removed and carriageway inspected', condition: 'Carriageway clear of the reported obstruction' },
   pothole: { summary: 'Pothole filled and surface levelled', condition: 'Surface sealed and level' },
   waterlogging: { summary: 'Drain inlet cleared and standing water removed', condition: 'Drainage restored; carriageway clear of standing water' },
   'zebra-crossing': { summary: 'Crossing markings renewed and inspected', condition: 'Crossing markings visible' },

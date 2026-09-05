@@ -48,8 +48,8 @@ function IssueWorkflow({ issue }: { issue: MunicipalIssue }) {
       <div><dt>Resolution state</dt><dd>{resolutionState}</dd></div>
     </dl>
     {assignment && <p className="operation-meta">Assigned {formatDemoDate(assignment.assignedAt)} · {assignment.acknowledgedAt ? `Acknowledged ${formatDemoDate(assignment.acknowledgedAt)}` : 'Acknowledgement pending'}</p>}
-    {stage === 'Detected' && <div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => municipalService.qualify(issue.id, 'Municipal admin'))}>Qualify issue</button></div>}
-    {stage === 'Qualified' && <form className="operation-form" onSubmit={e => { e.preventDefault(); void run(() => municipalService.assign(issue.id, teamId, assignee.trim())); }}>
+    {stage === 'Detected' && <div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => municipalService.qualify(issue.id, 'Municipal admin'), { message: 'Issue qualified for departmental action.', tone: 'info' })}>Qualify issue</button></div>}
+    {stage === 'Qualified' && <form className="operation-form" onSubmit={e => { e.preventDefault(); void run(() => municipalService.assign(issue.id, teamId, assignee.trim()), { message: 'Department assigned. Awaiting acknowledgement.', tone: 'info' }); }}>
       <label>Department team<select value={teamId} disabled={busy || !teams.length} onChange={e => {
         setTeamId(e.target.value);
         setAssignee(teams.find(team => team.id === e.target.value)?.name || '');
@@ -58,11 +58,11 @@ function IssueWorkflow({ issue }: { issue: MunicipalIssue }) {
       {!teams.length && <p role="status">No teams are available for the responsible department.</p>}
       <div className="operation-actions"><button className="primary" disabled={busy || !teams.some(team => team.id === teamId) || !assignee.trim()}>Assign department</button></div>
     </form>}
-    {stage === 'Assigned' && <div className="operation-actions"><button className="primary" disabled={busy || !assignment} onClick={() => run(() => municipalService.acknowledge(issue.id))}>Acknowledge assignment</button></div>}
-    {stage === 'Acknowledged' && <div className="operation-actions"><button className="primary" disabled={busy || !assignment} onClick={() => run(() => municipalService.startFieldWork(issue.id))}>Start field action</button></div>}
+    {stage === 'Assigned' && <div className="operation-actions"><button className="primary" disabled={busy || !assignment} onClick={() => run(() => municipalService.acknowledge(issue.id), { message: 'Department acknowledged the assignment.', tone: 'info' })}>Acknowledge assignment</button></div>}
+    {stage === 'Acknowledged' && <div className="operation-actions"><button className="primary" disabled={busy || !assignment} onClick={() => run(() => municipalService.startFieldWork(issue.id), { message: 'Field action started.', tone: 'info' })}>Start field action</button></div>}
     {stage === 'In progress' && <form className="operation-form" onSubmit={e => {
       e.preventDefault();
-      if (!emergencyActive) void run(() => workflowService.submitDemoResolution(event, summary.trim(), condition.trim()));
+      if (!emergencyActive) void run(() => workflowService.submitDemoResolution(event, summary.trim(), condition.trim()), 'Resolution submitted. Admin review requested.');
     }}>
       <h3>Field completion</h3>
       <p className="operation-meta">Editable demo defaults. Marking resolved submits evidence for admin review; it does not verify or close the issue.</p>
@@ -73,7 +73,7 @@ function IssueWorkflow({ issue }: { issue: MunicipalIssue }) {
       <div className="operation-actions"><button className="primary" disabled={busy || !assignment || !summary.trim() || !condition.trim() || emergencyActive} aria-describedby={emergencyActive ? `emergency-block-${issue.id}` : undefined}>Mark resolved</button></div>
     </form>}
     <ResolutionReview event={event} actor="Municipal admin" />
-    {stage === 'Verified' && <><p role="status">Resolution verified. The issue remains open until explicitly closed.</p><div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => municipalService.close(issue.id, 'Municipal admin'))}>Close issue</button></div></>}
+    {stage === 'Verified' && <><p role="status">Resolution verified. The issue remains open until explicitly closed.</p><div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => municipalService.close(issue.id, 'Municipal admin'), 'Issue closed. Verified road condition published.')}>Close issue</button></div></>}
     {stage === 'Closed' && <p role="status">Issue closed · verified condition available to Citizens.</p>}
     {error && <p role="alert">{error}</p>}
     <WorkflowHistory items={issue.history} />

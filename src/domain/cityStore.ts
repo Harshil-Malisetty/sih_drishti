@@ -1,9 +1,11 @@
-import type { AdminReview, CityState, CityTrafficObservation, DispatchStage, EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
+import type { AdminReview, CitizenReportInput, CityState, CityTrafficObservation, DispatchStage, EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
 import { calculateScenario } from './planning';
 import { selectAssignment } from './selectors';
 import { emergencyEligible, selectEmergency } from './operations';
 
 export type CityCommand =
+  | { type: 'submitCitizenReport'; input: CitizenReportInput }
+  | { type: 'reviewCitizenReport'; reportId: string; decision: 'Accepted' | 'Dismissed'; note: string }
   | { type: 'qualifyIssue'; issueId: string; actor: string }
   | { type: 'closeIssue'; issueId: string; actor: string }
   | { type: 'closeDispatch'; dispatchId: string; actor: string }
@@ -59,6 +61,38 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
   next.now = new Date(Date.parse(state.now) + 60_000).toISOString();
   const id = (prefix: string) => `${prefix}-${String(sequence).padStart(4, '0')}`;
   switch (command.type) {
+    case 'submitCitizenReport': {
+      const input = command.input;
+      required(next.roadSegments[input.roadSegmentId], 'Choose a supported road location');
+      if (!['pothole', 'waterlogging', 'obstruction'].includes(input.category)) throw new Error('Choose a report category');
+      if (input.description.trim().length < 10 || input.description.length > 1000) throw new Error('Describe the issue in 10–1000 characters');
+      if (input.image.length > 2_800_000 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(input.image)) throw new Error('Attach a JPEG, PNG or WebP photo up to 2 MB');
+      if (Object.values(next.citizenReports).filter(report => report.status === 'Pending').length >= 20) throw new Error('The demo report queue is full. Review pending reports first.');
+      next.citizenReports[id('CIT')] = { ...input, description: input.description.trim(), id: id('CIT'), submittedAt: next.now, status: 'Pending' };
+      break;
+    }
+    case 'reviewCitizenReport': {
+      const report = required(next.citizenReports[command.reportId], 'Unknown citizen report');
+      text(command.note, 'Triage note');
+      if (report.status !== 'Pending') throw new Error('This report has already been reviewed');
+      if (!['Accepted', 'Dismissed'].includes(command.decision)) throw new Error('Invalid triage decision');
+      report.status = command.decision; report.reviewNote = command.note.trim();
+      if (command.decision === 'Accepted') {
+        const segment = next.roadSegments[report.roadSegmentId];
+        const [latitude, longitude] = segment.points[Math.floor(segment.points.length / 2)];
+        const water = report.category === 'waterlogging';
+        const title = water ? 'Waterlogging' : report.category === 'pothole' ? 'Pothole' : 'Road obstruction';
+        const issueId = id('ISS'); report.issueId = issueId;
+        next.issues[issueId] = { id: issueId, citizenReportId: report.id, kind: report.category,
+          roadSegmentId: segment.id, departmentId: water ? 'stormwater' : 'roads-engineering', workflowStage: 'Detected',
+          defectType: title, category: water ? 'Water' : 'Roads', severity: 'Medium', status: 'Open',
+          location: segment.name, latitude, longitude, firstSeen: report.submittedAt, lastSeen: report.submittedAt,
+          growthPercentage: 0, detectionCount: 0, busIds: [], route: '', image: report.image,
+          currentCondition: report.description, recommendedAction: 'Assess citizen evidence and qualify for field action',
+          history: [{ at: next.now, action: `Citizen report accepted for assessment: ${report.reviewNote}`, actor: 'Municipal triage' }] };
+      }
+      break;
+    }
     case 'qualifyIssue': {
       text(command.actor, 'Reviewing official');
       const issue = required(next.issues[command.issueId], 'Unknown municipal issue');

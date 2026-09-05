@@ -16,7 +16,7 @@ function EmergencyDispatchWorkflow({ event, actor }: { event: EventRef; actor: s
   const [reason, setReason] = useState('');
   const [teamId, setTeamId] = useState('');
   const [outcome, setOutcome] = useState('');
-  const { busy, error, run } = useOperation();
+  const { busy, error, run } = useOperation({ message: 'Emergency response state updated.', tone: 'info' });
   if (!dispatch && !emergencyEligible(state, event)) return null;
 
   const teams = Object.values(state.teams).filter(team => state.departments[team.departmentId]?.role === 'response');
@@ -35,7 +35,7 @@ function EmergencyDispatchWorkflow({ event, actor }: { event: EventRef; actor: s
       <p>This event is eligible for a manual, coordinated response request. Fleet observations do not automatically declare an emergency or dispatch a team. This demo does not contact real emergency services.</p>
       <div className="operation-form">
         <label>Reason for emergency response (required)<textarea value={reason} onChange={e => setReason(e.target.value)} disabled={busy} required/></label>
-        <div className="operation-actions"><button className="primary" disabled={busy || !reason.trim()} onClick={() => run(() => emergencyService.request(event, reason.trim(), actor))}>Dispatch emergency team</button></div>
+        <div className="operation-actions"><button className="primary" disabled={busy || !reason.trim()} onClick={() => run(() => emergencyService.request(event, reason.trim(), actor), { message: 'Emergency response requested. No real service is contacted.', tone: 'info' })}>Dispatch emergency team</button></div>
       </div>
     </> : <>
       <p><strong>Request reason:</strong> {dispatch.reason}</p>
@@ -54,7 +54,7 @@ function EmergencyDispatchWorkflow({ event, actor }: { event: EventRef; actor: s
         </select></label>
         {!availableTeams.length && <p role="status">{teams.length ? 'All emergency response teams are busy. Complete their response and discharge a team before assigning it here.' : 'No emergency response teams are configured. This request remains pending until a response team is available.'}</p>}
         {availableTeams.length > 0 && !selectedTeamAvailable && <p role="status">The selected team is unavailable. Choose another available response team.</p>}
-        <div className="operation-actions"><button className="primary" disabled={busy || !selectedTeamAvailable} onClick={() => run(() => emergencyService.assign(dispatch.id, selectedTeamId, actor))}>Assign emergency team</button></div>
+        <div className="operation-actions"><button className="primary" disabled={busy || !selectedTeamAvailable} onClick={() => run(() => emergencyService.assign(dispatch.id, selectedTeamId, actor), { message: 'Emergency response team assigned.', tone: 'info' })}>Assign emergency team</button></div>
       </div>}
       {dispatch.stage === 'Assigned' && <div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => emergencyService.advance(dispatch.id, 'En route', actor))}>Mark emergency team en route</button></div>}
       {dispatch.stage === 'En route' && <div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => emergencyService.advance(dispatch.id, 'On scene', actor))}>Mark emergency team on scene</button></div>}
@@ -71,7 +71,7 @@ function EmergencyDispatchWorkflow({ event, actor }: { event: EventRef; actor: s
         {event.kind === 'municipal' && <p>Emergency team discharge does not resolve the municipal issue. Departmental field resolution and admin review remain required before closure.</p>}
         {event.kind === 'incident' && !resolvedAt && <>
           <p>The team is released. Resolve the incident separately to remove it from the active queue.</p>
-          <div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => emergencyService.resolveIncident(dispatch.id, actor))}>Resolve event</button></div>
+          <div className="operation-actions"><button className="primary" disabled={busy} onClick={() => run(() => emergencyService.resolveIncident(dispatch.id, actor), 'Incident resolved after team release.')}>Resolve event</button></div>
         </>}
       </>}
       <WorkflowHistory items={dispatch.history}/>

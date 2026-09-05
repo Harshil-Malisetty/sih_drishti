@@ -1,81 +1,119 @@
-import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowRight, Clock3, CloudRain, LocateFixed, Navigation, Route, TrafficCone, TrendingUp } from 'lucide-react';
-import type { CitizenAlert, TrafficObservation } from '../types';
-import type { CitizenJourney, PublicMunicipalProject, PublicRoadCondition } from '../types/city';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownUp, Camera, LocateFixed } from 'lucide-react';
 import { useCityData } from '../services/useCityData';
-import { formatDemoTime } from '../domain/time';
-import { BottomSheet, MapLegend, MapView, type MapMarker } from '../components/MapView';
-import { CitizenProjectPicker, CitizenProjectSheet, CitizenRouteProjects, CitizenWorkCard } from '../components/CitizenProjectContext';
-import { AppHeader, EmptyState, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
+import { findJourney } from '../services/journey';
+import { evaluateJourney, journeyPlaces, savedJourneyRoutes, type JourneyPlace, type JourneyRoute } from '../domain/citizenJourney';
+import { formatDemoDate, formatDemoTime } from '../domain/time';
+import { AppHeader, SeverityBadge } from '../components/ui';
+import { CitizenMapView } from '../components/CitizenMapView';
+import { CitizenReportForm, Modal } from '../components/CitizenReports';
+import '../styles-citizen.css';
 
-export default function CitizenPages({page,navigate,exit}:{page:string;navigate:(x:string)=>void;exit:()=>void}){
- const {traffic,alerts,route,mobility}=useCityData();
- const [selectedId,setSelectedId]=useState<string|undefined>(()=>traffic[0]?.id);
- const [selectedProjectId,setSelectedProjectId]=useState<string>();
- const [routeDetail,setRouteDetail]=useState(false);
- const selectedProject=mobility.projects.find(project=>project.projectId===selectedProjectId&&project.status!=='Completed');
- useEffect(()=>setRouteDetail(false),[page]);
- useEffect(()=>{if(route.alternativeMinutes===null)setRouteDetail(false)},[route.alternativeMinutes]);
- useEffect(()=>{if(selectedProjectId&&!selectedProject)setSelectedProjectId(undefined)},[selectedProjectId,selectedProject]);
- useEffect(()=>{const home=()=>setRouteDetail(false);addEventListener('workspace-home',home);return()=>removeEventListener('workspace-home',home)},[]);
- const selectTraffic=(id:string)=>{setSelectedId(id);setSelectedProjectId(undefined)};
- const openProject=(projectId:string)=>{setSelectedProjectId(projectId);navigate('map')};
- const dismissProject=()=>{
-  setSelectedProjectId(undefined);
-  if(selectedProjectId)document.getElementById(`citizen-project-${selectedProjectId}`)?.focus({preventScroll:true});
- };
- if(page==='routes'&&routeDetail&&route.alternativeMinutes!==null)return <><AppHeader title="Route details" subtitle={`Simulated journey estimate · Updated ${formatDemoTime(mobility.asOf)}`} onBack={()=>setRouteDetail(false)}/><main><RouteDetail route={route} projects={mobility.projects} openProject={openProject}/></main></>;
- return <><AppHeader title="Citizen Mobility" subtitle={`Chennai · Updated ${formatDemoTime(mobility.asOf)}`} onExit={exit}/><main>
-  {page==='traffic'&&<TrafficHome traffic={traffic} alerts={alerts} projects={mobility.projects} selectedId={selectedId} openProject={openProject} openMap={()=>navigate('map')} selectMarker={id=>{selectTraffic(id);navigate('map')}} openAlerts={()=>navigate('alerts')}/>}
-  {page==='map'&&<TrafficMap traffic={traffic} projects={mobility.projects} selectedId={selectedId} selectedProject={selectedProject} onSelect={selectTraffic} onSelectProject={setSelectedProjectId} dismissProject={dismissProject} findRoute={()=>navigate('routes')}/>}
-  {page==='routes'&&<Routes route={route} projects={mobility.projects} openProject={openProject} view={()=>{if(route.alternativeMinutes!==null)setRouteDetail(true)}}/>}
-  {page==='alerts'&&<Alerts alerts={alerts} conditions={mobility.conditions}/>}
- </main></>;
+export default function CitizenPages({ page, navigate, exit }: { page: string; navigate: (page: string) => void; exit: () => void }) {
+  const { state, mobility } = useCityData();
+  const [originId, setOrigin] = useState(journeyPlaces[0].id);
+  const [destinationId, setDestination] = useState(journeyPlaces[1].id);
+  const [currentLocation, setCurrentLocation] = useState<JourneyPlace>();
+  const [journey, setJourney] = useState({ origin: journeyPlaces[0], destination: journeyPlaces[1] });
+  const [routes, setRoutes] = useState<JourneyRoute[]>(savedJourneyRoutes);
+  const [selectedId, setSelected] = useState('direct');
+  const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [error, setError] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [projectId, setProject] = useState<string>();
+  const request = useRef<AbortController | null>(null);
+  const requestVersion = useRef(0);
+  const locationVersion = useRef(0);
+  const places = currentLocation ? [...journeyPlaces, currentLocation] : journeyPlaces;
+  const evaluated = useMemo(() => evaluateJourney(state, routes), [state, routes]);
+  const recommended = [...evaluated].filter(route => route.minutes !== null).sort((a, b) => a.minutes! - b.minutes!)[0];
+  const selected = evaluated.find(route => route.id === selectedId) || recommended || evaluated[0];
+  const project = mobility.projects.find(item => item.projectId === projectId && item.status !== 'Completed');
+  const relevantProjects = [...new Map(evaluated.flatMap(route => route.projects).map(item => [item.projectId, item])).values()];
+  const dirty = journey.origin.id !== originId || journey.destination.id !== destinationId;
+  const searchSection = useRef<HTMLElement>(null), routeSection = useRef<HTMLElement>(null), conditionsHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    const target = page === 'routes' ? routeSection.current : page === 'alerts' ? conditionsHeading.current : searchSection.current;
+    target?.scrollIntoView({ block: 'start' });
+  }, [page]);
+  useEffect(() => () => { request.current?.abort(); requestVersion.current++; locationVersion.current++; }, []);
+  useEffect(() => { setSelected(id => evaluated.find(route => route.id === id)?.blocked && recommended ? recommended.id : id); }, [evaluated]);
+  useEffect(() => { if (projectId && !project) setProject(undefined); }, [projectId, project]);
+  const invalidate = () => { request.current?.abort(); requestVersion.current++; setBusy(false); setError(''); };
+  const search = async () => {
+    invalidate();
+    const origin = places.find(place => place.id === originId)!, destination = places.find(place => place.id === destinationId)!;
+    const controller = new AbortController(); request.current = controller;
+    const version = ++requestVersion.current;
+    setBusy(true);
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    try {
+      const result = await findJourney(origin, destination, controller.signal);
+      if (version !== requestVersion.current) return;
+      setJourney({ origin, destination }); setRoutes(result); setSelected(result[0].id); navigate('routes');
+    } catch (cause) {
+      if (version === requestVersion.current) {
+        setRoutes([]); setJourney({ origin, destination });
+        setError(controller.signal.aborted ? 'Routing timed out. Try again or choose the saved Teynampet → Guindy journey.' : cause instanceof Error ? cause.message : 'Routing unavailable.');
+      }
+    } finally { window.clearTimeout(timeout); if (version === requestVersion.current) setBusy(false); }
+  };
+  const locate = () => {
+    setError('');
+    if (!navigator.geolocation) { setError('Location is unavailable. Choose a starting point instead.'); return; }
+    const version = ++locationVersion.current; setLocating(true);
+    navigator.geolocation.getCurrentPosition(position => {
+      if (version !== locationVersion.current) return;
+      setLocating(false);
+      if (position.coords.accuracy > 500) { setError('Location is too imprecise. Choose a starting point instead.'); return; }
+      const location: JourneyPlace = { id: 'current', name: 'Current location', point: [position.coords.latitude, position.coords.longitude] };
+      if (location.point[0] < 12.8 || location.point[0] > 13.3 || location.point[1] < 80 || location.point[1] > 80.35) { setError('You are outside Chennai routing coverage. Choose a starting point.'); return; }
+      invalidate(); setCurrentLocation(location); setOrigin(location.id);
+    }, () => { if (version === locationVersion.current) { setLocating(false); setError('Location could not be obtained. Choose a starting point instead.'); } }, { timeout: 10000, maximumAge: 60000 });
+  };
+  return <><AppHeader title="Citizen Mobility" subtitle="Chennai · Plan your journey" onExit={exit}/>
+    <main className="citizen-journey">
+      <section ref={searchSection} className="journey-search" aria-label="Plan a journey">
+        <div className="journey-heading"><h1>Where are you going?</h1><button className="icon-btn" aria-label="Report a road issue" onClick={() => setReportOpen(true)}><Camera/></button></div>
+        <div className="journey-inputs"><label>From<select aria-label="Source location" value={originId} onChange={event => { invalidate(); locationVersion.current++; setLocating(false); setOrigin(event.target.value); }}>{places.map(place => <option value={place.id} key={place.id}>{place.name}</option>)}</select></label>
+          <button className="swap-journey" aria-label="Swap source and destination" onClick={() => { invalidate(); locationVersion.current++; setLocating(false); setOrigin(destinationId); setDestination(originId); }}><ArrowDownUp/></button>
+          <label>To<select aria-label="Destination location" value={destinationId} onChange={event => { invalidate(); setDestination(event.target.value); }}>{places.map(place => <option value={place.id} key={place.id}>{place.name}</option>)}</select></label>
+        </div>
+        <div className="journey-search-actions"><button className="location-action" disabled={locating} onClick={locate}><LocateFixed size={16}/>{locating ? 'Locating…' : 'Use current location'}</button><button className="primary" disabled={busy || originId === destinationId} onClick={() => void search()}>{busy ? 'Finding…' : 'Find routes'}</button></div>
+        {originId === destinationId && <p role="status">Choose different start and destination locations.</p>}
+        {dirty && <p className="journey-note" role="status">Locations changed. Find routes to update the map.</p>}
+        {error && <p className="journey-error" role="alert">{error}</p>}
+      </section>
+      <CitizenMapView routes={evaluated} selected={selected?.id} select={setSelected} origin={journey.origin} destination={journey.destination} projects={relevantProjects.flatMap(item => {
+        const points = state.roadSegments[item.roadSegmentId]?.points;
+        return points?.length ? [{ id: item.projectId, title: `${item.roadName} · Municipal work`, point: points[Math.floor(points.length / 2)], select: () => setProject(item.projectId) }] : [];
+      })}/>
+      <section ref={routeSection} className="journey-sheet" aria-label="Journey route details">
+        <div className="journey-sheet-heading"><h2>{page === 'alerts' ? 'On your journey' : 'Route options'}</h2><span>Car · estimates</span></div>
+        <p className="journey-note">{journey.origin.name} → {journey.destination.name}</p>
+        {!evaluated.length && <p>No route calculated. Adjust the locations or retry.</p>}
+        <div className="journey-options">{evaluated.map(route => {
+          const other = evaluated.filter(item => item.id !== route.id && item.minutes !== null).sort((a, b) => a.minutes! - b.minutes!)[0];
+          const saving = route.minutes !== null && other?.minutes !== null && other?.minutes !== undefined ? other.minutes - route.minutes : null;
+          return <button className={`journey-option ${route.id === selected?.id ? 'selected' : ''}`} key={route.id} aria-pressed={route.id === selected?.id} onClick={() => setSelected(route.id)}>
+            <span><strong>{route.label}</strong><small>{route.distanceKm.toFixed(1)} km · {route.blocked ? 'Affected by approved closure' : route.id === recommended?.id ? 'Lowest available estimate' : 'Alternative route'}</small>{saving !== null && saving > 0 && <small className="journey-saving">Estimated {saving} min less than the other option</small>}</span>
+            <b>{route.minutes === null ? 'Closed' : <>{route.minutes}<small>min</small></>}</b>
+          </button>;
+        })}</div>
+        {evaluated.length > 0 && !recommended && <p role="status">All calculated routes are affected by closures. No open alternative was found.</p>}
+        {selected && <>
+          <h3 ref={conditionsHeading}>{selected.blocked ? 'Road work affecting this route' : 'Conditions on this route'}</h3>
+          {selected.projects.map(item => <button className="journey-condition work" key={item.projectId} onClick={() => setProject(item.projectId)}><span><strong>ROAD WORK · {item.roadName}</strong><small>Until {formatDemoDate(item.endsAt)} · {selected.blocked ? 'Closure' : 'Expect delays'}</small></span><span>Details →</span></button>)}
+          {selected.conditions.map(condition => <div className="journey-condition" key={condition.id}><span><strong>{condition.title}</strong><small>{condition.location} · Reported, use caution</small></span><SeverityBadge value={condition.severity}/></div>)}
+          {selected.traffic.map(item => <div className="journey-condition" key={item.id}><span><strong>{item.road} · {item.densityLevel} traffic</strong><small>Observed {item.timestamp} · {item.averageSpeed} km/h average</small></span></div>)}
+          {!selected.projects.length && !selected.conditions.length && !selected.traffic.length && <p className="journey-note">No recorded issues matched this route. Coverage is limited; this is not an all-clear.</p>}
+        </>}
+        {relevantProjects.some(item => !selected?.projects.some(visible => visible.projectId === item.projectId)) && <details className="avoided-work"><summary>Road work avoided by this option</summary>{relevantProjects.filter(item => !selected?.projects.some(visible => visible.projectId === item.projectId)).map(item => <button className="journey-condition" key={item.projectId} onClick={() => setProject(item.projectId)}><span><strong>{item.roadName} · Municipal work</strong><small>Until {formatDemoDate(item.endsAt)}</small></span><span>Details →</span></button>)}</details>}
+        <details className="journey-method"><summary>About routes and coverage</summary><p>{selected?.source || 'Road-network routing'} · © OpenStreetMap contributors, OSRM. The saved Teynampet → Guindy journey works without a routing request. Other landmark pairs and current-location routes use a public routing service when you press Find routes.</p><p>Estimates use road-network travel times plus matched municipal planning delays, not live traffic predictions. Reported issues are shown on linked corridors or within 120 m of the route; sampled closure coverage is approximate. Follow signs and official diversions. No turn-by-turn guidance.</p><p>Your selected coordinates are sent to routing.openstreetmap.de only for a requested online route. No location is stored by this demo. Last city update: {formatDemoTime(mobility.asOf)}.</p></details>
+      </section>
+    </main>
+    {project && <Modal title="Municipal road work" close={() => setProject(undefined)}><div className="project-public-detail"><span className="eyebrow">ROAD WORK · {project.status.toUpperCase()}</span><h3>{project.roadName}</h3><p>{project.title}</p><p>Active until {formatDemoDate(project.endsAt)}</p><p>Expect delays. This notice comes from approved municipal planning context.</p><button className="primary full" onClick={() => { setProject(undefined); if (recommended) setSelected(recommended.id); navigate('routes'); }}>{recommended ? 'Find better route' : 'Review route availability'}</button></div></Modal>}
+    {reportOpen && <CitizenReportForm close={() => setReportOpen(false)} initialRoad={selected?.segmentIds.find(id => state.roadSegments[id]?.planningEnabled)}/>}
+  </>;
 }
-
-const markers=(traffic:TrafficObservation[]):MapMarker[]=>traffic.map(x=>({id:x.id,type:'traffic',x:x.mapX,y:x.mapY,label:`${x.road}, ${x.densityLevel} traffic`,detail:x.densityLevel}));
-
-function TrafficHome({traffic,alerts,projects,selectedId,openMap,selectMarker,openAlerts,openProject}:{traffic:TrafficObservation[];alerts:CitizenAlert[];projects:PublicMunicipalProject[];selectedId?:string;openMap:()=>void;selectMarker:(id:string)=>void;openAlerts:()=>void;openProject:(projectId:string)=>void}){const main=traffic.find(item=>item.id===selectedId)||traffic[0];return <div className="citizen-home"><div className="city-greeting"><span>CITY MOBILITY</span><h1>Current traffic</h1><p>Live conditions from the city's public transport sensing network.</p></div><div className="home-map"><MapView markers={markers(traffic)} selected={selectedId} onSelect={selectMarker} mode="traffic"><MapLegend mode="traffic"/><button className="map-open" onClick={openMap}>Explore map <ArrowRight/></button><div className="traffic-summary"><span>TRAFFIC STATUS<strong>{main?.densityLevel??'Unavailable'}</strong></span><span>LAST UPDATED<strong>{main?.timestamp??'Unavailable'}</strong></span></div></MapView></div><CitizenWorkCard projects={projects} openProject={openProject}/><div className="nearby"><SectionHeader title="Nearby conditions" action="View alerts" onAction={openAlerts}/>{alerts.map(a=><div className="nearby-row" key={a.id}><i className={a.type.toLowerCase()}>{a.type==='Waterlogging'?<CloudRain/>:<TrafficCone/>}</i><div><strong>{a.title}</strong><span>{a.location}</span></div><b>{a.distance}</b></div>)}</div></div>}
-
-function TrafficMap({traffic,projects,selectedId,selectedProject,onSelect,onSelectProject,dismissProject,findRoute}:{
- traffic:TrafficObservation[];projects:PublicMunicipalProject[];selectedId?:string;selectedProject?:PublicMunicipalProject;
- onSelect:(id:string)=>void;onSelectProject:(projectId:string)=>void;dismissProject:()=>void;findRoute:()=>void;
-}){
- const selected=selectedId??traffic[0]?.id;
- const segment=traffic.find(x=>x.id===selected);
- const activeProjects=projects.filter(project=>project.status==='Active');
- // Reuse only known schematic road positions, with one marker per traffic position.
- // The picker remains available for additional projects on the same road and unmapped roads.
- const mapMarkers=markers(traffic).map((marker,index):MapMarker=>{
-  const roadSegmentId=traffic[index].roadSegmentId;
-  const project=activeProjects.find(item=>item.projectId===selectedProject?.projectId&&item.roadSegmentId===roadSegmentId)
-   ??activeProjects.find(item=>item.roadSegmentId===roadSegmentId);
-  return project?{id:`project-${project.projectId}`,type:'infrastructure',x:marker.x,y:marker.y,label:`${project.title}, ${project.roadName}, active approved municipal work. Show project details`}:marker;
- });
- const selectedMarker=selectedProject?`project-${selectedProject.projectId}`:selected;
- return <div className="map-page citizen-full-map"><MapView markers={mapMarkers} selected={selectedMarker} onSelect={id=>{
-  const project=activeProjects.find(item=>`project-${item.projectId}`===id);
-  if(project)onSelectProject(project.projectId);else onSelect(id);
- }} mode="traffic">
-  <MapLegend mode="traffic"/>
-  <CitizenProjectPicker projects={projects} selectedProjectId={selectedProject?.projectId} onSelect={onSelectProject}/>
-  {selectedProject?<CitizenProjectSheet project={selectedProject} hasMarker={mapMarkers.some(marker=>marker.id===selectedMarker)} onDismiss={dismissProject} findRoute={findRoute}/>:segment&&<BottomSheet eyebrow={`${segment.road.toUpperCase()} · UPDATED ${segment.timestamp}`} title={`${segment.densityLevel} traffic`} action={segment.id==='TR-1'?'Find a better route':undefined} onAction={segment.id==='TR-1'?findRoute:undefined}><div className="traffic-facts"><span>Vehicle density<strong>{segment.densityLevel==='Severe'?'Very high':segment.densityLevel}</strong></span><span>Average speed<strong>{segment.averageSpeed} km/h</strong></span><span>Trend<strong><TrendingUp/> {segment.trend}</strong></span></div><p className="fleet-source">Why is this shown? <strong>Observed by public transport fleet</strong></p><small>Recommended: {segment.recommendedAction}</small></BottomSheet>}
- </MapView></div>;
-}
-
-function Routes({route,projects,openProject,view}:{route:CitizenJourney;projects:PublicMunicipalProject[];openProject:(projectId:string)=>void;view:()=>void}){
- const saving=route.currentMinutes!==null&&route.alternativeMinutes!==null?route.currentMinutes-route.alternativeMinutes:null;
- const faster=saving!==null&&saving>0;
- const recommended=route.alternativeMinutes!==null&&(route.currentMinutes===null||faster);
- return <div className="page"><PageIntro eyebrow="PUBLIC MOBILITY ADVISORY" title={recommended?'A better route':'Route options'} text={`From ${route.origin} to ${route.destination}`}/>
-  <div className="route-saving"><span>{faster?'SAVE':'SAVINGS'}</span><strong>{faster?`${saving} min`:saving===null?'Unavailable':'No time saved'}</strong></div>
-  <div className="route-compare"><div className="route old"><i/><div><span>Current route</span><strong>{route.currentMinutes===null?'Unavailable':`${route.currentMinutes} min`}</strong><small>Via {route.currentVia} · {route.currentTraffic} traffic</small></div></div><div className={`route${recommended?' recommended':''}`}><i/><div><span>{recommended?'Recommended':'Alternative'} · Route B</span><strong>{route.alternativeMinutes===null?'Unavailable':`${route.alternativeMinutes} min`}</strong><small>Via {route.via}</small></div><b>{route.traffic}</b></div></div>
-  <Surface className="route-reason"><Navigation/><div><strong>{recommended?'Why this route?':'Route availability'}</strong><p>{route.reason}</p><CitizenRouteProjects projects={projects} projectIds={route.projectIds} openProject={openProject}/></div></Surface>
-  {route.alternativeMinutes===null&&<p role="status">{route.currentMinutes===null?'Both demo routes are unavailable. No open route can be recommended.':'The alternative route is unavailable.'} Follow local traffic advisories; no other route has been calculated.</p>}
-  <button className="primary full" onClick={view} disabled={route.alternativeMinutes===null} style={{minHeight:44}}>View route <ArrowRight/></button><p className="disclaimer">Demo recommendation only. This prototype does not replace turn-by-turn navigation.</p>
- </div>;
-}
-
-function RouteDetail({route,projects,openProject}:{route:CitizenJourney;projects:PublicMunicipalProject[];openProject:(projectId:string)=>void}){const recommended=route.alternativeMinutes!==null&&(route.currentMinutes===null||route.alternativeMinutes<route.currentMinutes);return <div className="page"><PageIntro eyebrow={`${recommended?'RECOMMENDED':'ALTERNATIVE'} · ROUTE B`} title={route.alternativeMinutes===null?'Unavailable':`${route.alternativeMinutes} min to ${route.destination}`} text={`${route.origin} → ${route.destination}`}/><Surface className="route-overview"><div><span>Origin<strong>{route.origin}</strong></span><span>Destination<strong>{route.destination}</strong></span><span>Estimated time<strong>{route.alternativeMinutes===null?'Unavailable':`${route.alternativeMinutes} min`}</strong></span><span>Traffic<strong>{route.traffic}</strong></span></div></Surface><div className="route-visual" aria-label={`Route from ${route.origin} to ${route.destination}`}>{route.stops.map((stop,index)=><div key={stop}><i>{index===0?'START':index===route.stops.length-1?'END':index}</i><strong>{stop.replace('Start · ','')}</strong>{index<route.stops.length-1&&<ArrowDown/>}</div>)}</div><Surface className="route-reason"><Navigation/><div><strong>Avoiding</strong><p>{route.avoiding}</p><strong>{recommended?'Why recommended':'Route context'}</strong><p>{route.reason} · Traffic is {route.traffic.toLowerCase()}.</p><CitizenRouteProjects projects={projects} projectIds={route.projectIds} openProject={openProject}/></div></Surface><p className="disclaimer">Demo advisory only, not turn-by-turn navigation.</p></div>}
-
-function Alerts({alerts,conditions}:{alerts:CitizenAlert[];conditions:PublicRoadCondition[]}){const icons={Traffic:TrafficCone,Waterlogging:CloudRain,Obstruction:Route};return <div className="page"><PageIntro eyebrow="NEARBY UPDATES" title="Mobility alerts" text="Important conditions that may affect your journey"/>{alerts.length===0?<EmptyState title="No nearby alerts"/>:<div className="alert-list">{alerts.map(x=>{const Icon=icons[x.type];return <div className="alert-row" key={x.id}><i className={x.type==='Waterlogging'?'blue':''}><Icon/></i><div><strong>{x.title}</strong><span><LocateFixed/> {x.location}</span></div><small><Clock3/> {x.timeAgo}</small></div>})}</div>}<SectionHeader title="Road conditions"/><div className="condition-list">{conditions.map(condition=><Surface key={condition.id}><div><strong>{condition.title} · {condition.location}</strong><span>{condition.verified?'Verified fixed · ':''}{condition.condition} · Updated {formatDemoTime(condition.updatedAt)}</span></div><SeverityBadge value={condition.severity}/></Surface>)}</div></div>}
