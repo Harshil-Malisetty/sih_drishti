@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#dce3df"/>
+  <rect y="170" width="800" height="280" fill="#535957"/>
+  <path d="M0 330h800" stroke="#e6dfbd" stroke-width="9" stroke-dasharray="55 38"/>
+  <g transform="translate(110 215) rotate(-5)"><path d="M0 80h585l-35 90H35Z" fill="#d9d5c8"/><path d="M20 92h120l-25 62H0Zm170 0h120l-25 62H165Zm170 0h120l-25 62H335Zm170 0h65l-25 62h-45Z" fill="#b95543"/></g>
+  <text x="34" y="58" fill="#263735" font-family="sans-serif" font-size="24" font-weight="700">FLEET EVIDENCE · DAMAGED DIVIDER</text>
+  <text x="34" y="92" fill="#52635f" font-family="sans-serif" font-size="18">Displaced panel placeholder</text>
+</svg>

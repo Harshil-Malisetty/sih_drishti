@@ -31,6 +31,44 @@
 .municipal-overview .operations-metrics .metric.infrastructure:before { background: #b08338; }
 .municipal-overview .operations-metrics .metric small { margin-top: 5px; }
 
+.operations-brief {
+  display: grid;
+  grid-template-columns: minmax(0,1.15fr) minmax(210px,.85fr);
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.observation-trend { padding: 14px; border-right: 1px solid var(--line); }
+.observation-trend header,.geographic-pressure header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.observation-trend header > span,.geographic-pressure header > span { color: #697671; font-size: 8px; font-weight: 800; }
+.observation-trend header strong { color: #315c51; font-size: 12px; }
+.observation-trend header small { color: var(--muted); font-size: 7px; font-weight: 500; }
+.observation-trend svg { display: block; width: 100%; height: 112px; margin-top: 8px; overflow: visible; }
+.observation-trend polyline { fill: none; stroke: #315c51; stroke-width: 2.4; vector-effect: non-scaling-stroke; }
+.observation-trend circle { fill: #315c51; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.observation-trend .overview-grid { stroke: #d7dfdc; stroke-width: .6; vector-effect: non-scaling-stroke; }
+.observation-trend footer { display: flex; justify-content: space-between; color: var(--muted); font-size: 7px; }
+.geographic-pressure { padding: 14px; }
+.geographic-pressure header button { display: flex; align-items: center; gap: 3px; border: 0; background: none; color: #315c51; font-size: 8px; font-weight: 800; }
+.geographic-pressure header svg { width: 11px; }
+.geographic-pressure > button { display: grid; grid-template-columns: 7px minmax(0,1fr) auto; align-items: center; gap: 8px; width: 100%; padding: 11px 0; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; }
+.geographic-pressure > button:last-child { border-bottom: 0; }
+.geographic-pressure i { width: 7px; height: 28px; background: #7b9a90; }
+.geographic-pressure i[data-tone="high"] { background: #a43f38; }
+.geographic-pressure i[data-tone="medium"] { background: #b08338; }
+.geographic-pressure span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.geographic-pressure strong { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.geographic-pressure small { color: var(--muted); font-size: 7px; }
+.geographic-pressure b { color: #52615c; font-size: 8px; white-space: nowrap; }
+
+.municipal-actions { display: grid; grid-template-columns: repeat(3,1fr); margin-top: 16px; border: 1px solid var(--line); background: #fff; }
+.municipal-actions button { position: relative; display: flex; min-height: 76px; flex-direction: column; align-items: flex-start; gap: 5px; padding: 13px 36px 13px 13px; border: 0; border-right: 1px solid var(--line); background: none; text-align: left; }
+.municipal-actions button:last-child { border-right: 0; }
+.municipal-actions span { color: #8a5b1f; font-size: 7px; font-weight: 800; }
+.municipal-actions strong { font-size: 10px; line-height: 1.35; }
+.municipal-actions svg { position: absolute; right: 12px; bottom: 12px; width: 14px; color: #315c51; }
+
 .lifecycle-chart {
   border: 1px solid var(--line);
   background: #fff;
@@ -282,7 +320,15 @@
 
 .impact-chart {
   position: relative;
-  padding-top: 24px;
+  padding-top: 4px;
+}
+
+.chart-toolbar {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .impact-chart svg {
@@ -295,16 +341,15 @@
 }
 
 .closure-window { fill: #f4e8e2; }
-.impact-grid { stroke: #9aa7a2; stroke-width: .7; vector-effect: non-scaling-stroke; }
+.impact-grid { stroke: #cbd4d0; stroke-width: .6; vector-effect: non-scaling-stroke; }
 .baseline-line,.simulated-line { fill: none; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .baseline-line { stroke: #315c51; stroke-dasharray: 5 4; }
 .simulated-line { stroke: #b34b3f; }
 .impact-point { fill: #b34b3f; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.impact-point { cursor: pointer; outline: none; transition: r .16s ease, stroke-width .16s ease; }
+.impact-point.active,.impact-point:focus { r: 3.2px; stroke-width: 2; }
 
 .chart-legend {
-  position: absolute;
-  top: 0;
-  right: 0;
   display: flex;
   gap: 12px;
   color: var(--muted);
@@ -322,6 +367,21 @@
 }
 
 .chart-legend .simulated-key:before { background: #b34b3f; }
+
+.chart-tooltip {
+  display: flex;
+  min-width: 110px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 3px 12px #263b3514;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.chart-tooltip strong { color: var(--ink); font-size: 11px; }
 
 .chart-axis,.chart-values {
   display: flex;
@@ -347,6 +407,149 @@
 }
 
 @media (max-width: 430px) {
+  .operations-brief { grid-template-columns: 1fr; }
+  .observation-trend { border-right: 0; border-bottom: 1px solid var(--line); }
+  .observation-trend svg { height: 104px; }
+  .municipal-actions { grid-template-columns: 1fr; }
+  .municipal-actions button { min-height: 62px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .municipal-actions button:last-child { border-bottom: 0; }
   .lifecycle-plot { height: 190px; }
   .lifecycle-evidence { grid-template-columns: 118px 1fr; }
+}
+
+.defect-card .defect-thumb b {
+  color: #315c51;
+}
+
+.defect-card .defect-state {
+  color: #8a5b1f;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.record-action {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 13px 14px;
+  border-left: 3px solid #b08338;
+  background: #fff8e9;
+}
+
+.record-action span,
+.selected-road span,
+.scenario-heading span,
+.bus-impact span,
+.data-basis span {
+  color: #8a5b1f;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.record-action strong { font-size: 11px; line-height: 1.45; }
+.record-action small { color: var(--muted); font-size: 9px; }
+
+.planning-instruction {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #315c51;
+  background: #edf3f0;
+}
+
+.planning-instruction strong { font-size: 11px; }
+.planning-instruction span { color: var(--muted); font-size: 9px; text-align: right; }
+.planning-page .scenario-map { min-height: 340px; }
+
+.selected-road {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  background: #fff;
+}
+
+.selected-road strong { font-size: 13px; }
+.selected-road small { color: var(--muted); font-size: 9px; }
+.planning-page .form { margin-top: 10px; }
+.scenario-result .scenario-map { min-height: 360px; margin: 0 calc(var(--page-pad) * -1); }
+
+.simulation-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 11px 12px;
+  border-left: 3px solid #315c51;
+  background: #edf3f0;
+}
+
+.simulation-notice span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.simulation-notice strong { color: #294b43; font-size: 10px; }
+.simulation-notice small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.simulation-notice button { display: grid; width: 28px; height: 28px; flex: none; place-items: center; border: 0; background: transparent; color: #315c51; }
+.simulation-notice svg { width: 15px; }
+
+.scenario-heading {
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.scenario-heading h1 { margin: 4px 0; font-size: 20px; letter-spacing: 0; }
+.scenario-heading p { margin: 0; color: var(--muted); font-size: 10px; }
+.network-impact,.timeline-section { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.network-impact ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+
+.network-impact li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.network-impact li span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.network-impact li strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.network-impact li small { color: var(--muted); font-size: 8px; }
+.network-impact li b { flex: none; color: #8a5b1f; font-size: 8px; text-transform: uppercase; }
+.network-impact li b[data-impact="severe"] { color: #7a2d35; }
+.network-impact li b[data-impact="high"] { color: #b2532c; }
+.timeline-section .impact-chart { padding-right: 5px; }
+.chart-axis span { width: 20%; text-align: center; }
+.chart-axis span:first-child { text-align: left; }
+.chart-axis span:last-child { text-align: right; }
+.chart-axis small { display: block; margin-top: 2px; color: #77837f; font-size: 7px; }
+
+.bus-impact,
+.data-basis {
+  display: flex;
+  gap: 11px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.bus-impact > svg { width: 20px; flex: none; color: #315c51; }
+.bus-impact div,.data-basis { flex-direction: column; }
+.bus-impact div { display: flex; flex-direction: column; gap: 3px; }
+.bus-impact strong,.data-basis strong { font-size: 11px; }
+.bus-impact small,.data-basis p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.data-basis { gap: 4px; border-bottom: 0; }
+
+@media (max-width: 430px) {
+  .planning-instruction { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .planning-instruction span { text-align: left; }
+  .planning-page .scenario-map { min-height: 310px; }
+  .scenario-result .scenario-map { min-height: 330px; }
+  .impact-chart svg { height: 165px; }
+  .chart-axis { gap: 2px; }
+  .chart-axis span { font-size: 7px; overflow-wrap: anywhere; }
 }

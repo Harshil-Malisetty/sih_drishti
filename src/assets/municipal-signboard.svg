@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#cfdedb"/>
+  <rect y="320" width="800" height="130" fill="#505856"/>
+  <path d="M455 110v275" stroke="#626d69" stroke-width="18"/>
+  <path d="M440 112h190" stroke="#626d69" stroke-width="14"/>
+  <rect x="468" y="130" width="145" height="88" fill="none" stroke="#8e9995" stroke-width="7" stroke-dasharray="12 10"/>
+  <path d="M540 162l28 13-28 13" fill="none" stroke="#8e9995" stroke-width="7"/>
+  <text x="34" y="58" fill="#263735" font-family="sans-serif" font-size="24" font-weight="700">FLEET EVIDENCE · SIGNBOARD</text>
+  <text x="34" y="92" fill="#52635f" font-family="sans-serif" font-size="18">Missing sign face placeholder</text>
+</svg>
