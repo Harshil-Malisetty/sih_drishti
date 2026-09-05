@@ -35,6 +35,12 @@ import { BarXAxis } from "../components/charts/bar-x-axis";
 import { Grid } from "../components/charts/grid";
 import { Line, LineChart } from "../components/charts/line-chart";
 import { ChartTooltip } from "../components/charts/tooltip";
+import { MunicipalWorkflow } from "../components/MunicipalWorkflow";
+import { MunicipalTasks } from "../components/MunicipalTasks";
+import { ProjectApproval } from "../components/ProjectApproval";
+import { EmergencyDispatchPanel } from "../components/EmergencyDispatchPanel";
+import { selectEventResolution } from "../domain/operations";
+import type { MunicipalTask } from "../types/city";
 
 type View =
   | { kind: "detail" | "lifecycle"; id: string }
@@ -103,6 +109,9 @@ export default function MunicipalOperations({
       />
     );
   const openItem = (item: RoadDefect) => open({ kind: "detail", id: item.id });
+  const openTask = (target: MunicipalTask['target']) => open(target.kind === "issue"
+    ? { kind: "detail", id: target.id }
+    : { kind: "result", scenarioId: target.id });
   const showIssues = (filter: string) => {
     setIssueFilter(filter);
     navigate("defects");
@@ -117,13 +126,14 @@ export default function MunicipalOperations({
       />
       <main>
         {page === "overview" && (
-          <Overview go={navigate} showIssues={showIssues} open={openItem} />
+          <Overview go={navigate} showIssues={showIssues} open={openItem} openTask={openTask} />
         )}{" "}
         {page === "defects" && (
           <IssueList
             filter={issueFilter}
             onFilter={setIssueFilter}
             open={openItem}
+            openTask={openTask}
           />
         )}{" "}
         {page === "map" && (
@@ -162,10 +172,12 @@ function Overview({
   go,
   showIssues,
   open,
+  openTask,
 }: {
   go: (x: string) => void;
   showIssues: (filter: string) => void;
   open: (x: RoadDefect) => void;
+  openTask: (target: MunicipalTask['target']) => void;
 }) {
   const { defects, plannerRoadSegments } = useCityData();
   const openIssues = defects.filter((item) => item.workflowStage !== "Closed");
@@ -226,7 +238,7 @@ function Overview({
           label="Verification"
           value={String(pendingIssues.length).padStart(2, "0")}
           tone="water"
-          meta="Pending passes"
+          meta="Awaiting admin review"
         />
       </div>
       <div className="sensor-strip municipal">
@@ -238,6 +250,7 @@ function Overview({
           </span>
         </div>
       </div>
+      <MunicipalTasks onOpen={openTask} />
       <section className="operations-brief">
         <div className="observation-trend">
           <header>
@@ -310,10 +323,12 @@ function IssueList({
   filter,
   onFilter,
   open,
+  openTask,
 }: {
   filter: string;
   onFilter: (value: string) => void;
   open: (x: RoadDefect) => void;
+  openTask: (target: MunicipalTask['target']) => void;
 }) {
   const { defects } = useCityData();
   const visible = defects.filter(
@@ -325,6 +340,7 @@ function IssueList({
         eyebrow="FLEET OBSERVATIONS · UPDATED 18:45"
         title="Road & infrastructure"
       />
+      <MunicipalTasks onOpen={openTask} />
       <FilterBar
         items={["All", "Roads", "Infrastructure", "Water", "Pedestrians"]}
         active={filter}
@@ -349,8 +365,9 @@ function Detail({
   home: () => void;
   lifecycle: () => void;
 }) {
-  const { defects } = useCityData();
+  const { defects, state } = useCityData();
   const x = defects.find((d) => d.id === id);
+  const { resolution, review } = selectEventResolution(state, { kind: "municipal", id });
   if (!x)
     return (
       <>
@@ -440,7 +457,9 @@ function Detail({
             <small>{x.maintenanceState}</small>
           </section>
         )}
-        {x.repair && (
+        <MunicipalWorkflow issueId={id} />
+        <EmergencyDispatchPanel event={{ kind: "municipal", id }} actor="Municipal admin" />
+        {x.repair && (!resolution || !review || x.repair.busId) && (
           <Surface className="verification">
             <CalendarCheck />
             <div>
@@ -624,6 +643,7 @@ function Planning({
             value={duration}
             onChange={(event) => onDuration(event.target.value)}
           >
+            <option>3 days</option>
             <option>2 weeks</option>
             <option>8 weeks</option>
             <option>4 months</option>
@@ -825,6 +845,7 @@ function Result({
           <h1>{simulation.road.name}</h1>
           <p>{duration} full closure · deterministic network estimate</p>
         </section>
+        <ProjectApproval scenarioId={scenarioId} />
         <ScenarioMap selected={simulation.road.id} simulation={simulation} />
         <div className="scenario-compare">
           <span>

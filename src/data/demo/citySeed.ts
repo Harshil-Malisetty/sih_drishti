@@ -24,12 +24,14 @@ const departments: Department[] = [
   { id: 'signage', name: 'Traffic Infrastructure / Signage', role: 'municipal' },
   { id: 'road-safety', name: 'Road Safety / Traffic Engineering', role: 'municipal' },
   { id: 'traffic-police', name: 'Traffic Police', role: 'police' },
+  { id: 'city-response', name: 'City Response', role: 'response' },
 ];
 const teams: Team[] = [
   ...departments.filter(department => department.role === 'municipal').map(department => ({ id: `${department.id}-team`, departmentId: department.id, name: `${department.name} field team` })),
   { id: 'traffic-investigation', departmentId: 'traffic-police', name: 'Traffic Investigation Unit' },
   { id: 'vehicle-crime', departmentId: 'traffic-police', name: 'Vehicle Crime Unit' },
   { id: 'central-response', departmentId: 'traffic-police', name: 'Central Response Team' },
+  { id: 'city-response-team', departmentId: 'city-response', name: 'City Response Team' },
 ];
 
 // Legacy display fixtures are seed inputs only. All application reads go through the city store.
@@ -99,7 +101,7 @@ export function createCitySeed(): CityState {
     buses: byId(buses.map(bus => ({ ...bus, roadSegmentId: busSegments[bus.id], observedAt: DEMO_START }))),
     incidents: byId(incidents.map(incident => ({ ...structuredClone(incident), roadSegmentId: incidentSegments[incident.id], observedAt: demoDate(incident.timestamp) }))),
     watchlist: byId(structuredClone(watchlist)), issues, departments: byId(departments), teams: byId(teams),
-    assignments: {}, resolutions: {}, reviews: {}, anomalies: {}, dispatches: {}, scenarios: {}, projects: {},
+    assignments: {}, resolutions: {}, reviews: {}, anomalies: {}, dispatches: {}, emergencyDispatches: {}, scenarios: {}, projects: {},
     journey: { id: 'ROUTE-B', origin: 'Teynampet', destination: 'Guindy', current: [{ roadSegmentId: 'anna', fraction: 1 },{ roadSegmentId: 'inner-ring', fraction: 14/27 }], alternative: [{ roadSegmentId: 'cpr', fraction: 1 },{ roadSegmentId: 'inner-ring', fraction: 4/27 }], viaSegmentId: 'cpr', stops: ['Start · Teynampet','C.P. Ramaswamy Road','Guindy','Destination'] },
   };
   const event = { kind: 'municipal' as const, id: repaired.id };

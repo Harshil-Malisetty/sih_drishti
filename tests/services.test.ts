@@ -61,8 +61,10 @@ describe('services share the one city store', () => {
     expect((await citizenService.getMobilityContext()).conditions.find(item => item.id === municipalEvent.id)).toMatchObject({ verified: false, condition: before!.currentCondition });
     await workflowService.reviewResolution(review.id, 'Verified', 'Municipal admin', 'Checked evidence');
     expect(await workflowService.getPendingReviews()).toEqual([]);
+    expect((await municipalService.getRoadDefect(municipalEvent.id))?.workflowStage).toBe('Verified');
+    await municipalService.close(municipalEvent.id, 'Municipal admin');
     const detail = await municipalService.getRoadDefect(municipalEvent.id);
-    expect(detail).toMatchObject({ status: 'Verified', workflowStage: 'Closed', currentCondition: resolution.resultingCondition });
+    expect(detail).toMatchObject({ status: 'Closed', workflowStage: 'Closed', currentCondition: resolution.resultingCondition });
     expect((await municipalService.getRoadDefects()).find(item => item.id === municipalEvent.id)).toEqual(detail);
     expect((await municipalService.getMunicipalMapData()).find(item => item.id === municipalEvent.id)).toEqual(detail);
     expect((await municipalService.getRoadRisk()).some(item => item.id === municipalEvent.id)).toBe(false);
@@ -92,6 +94,7 @@ describe('services share the one city store', () => {
     expect((await citizenService.getMapData()).traffic.find(item => item.id === 'TR-1')?.vehicleCount).toBe(60);
     expect((await trafficService.getObservations()).find(item => item.id === observation.id)).toEqual(observation);
     await workflowService.reviewResolution(review.id, 'Verified', 'Admin', 'Flow restored');
+    await policeTrafficService.close(dispatch.id, 'Admin');
     expect((await policeTrafficService.getAnomalies())[0]).toMatchObject({ status: 'Closed', dispatch: { stage: 'Closed' } });
     expectIntegrity(cityStore.getSnapshot());
   });

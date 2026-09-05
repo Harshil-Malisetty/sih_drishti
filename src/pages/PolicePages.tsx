@@ -3,14 +3,18 @@ import { ArrowRight, BusFront, CheckCircle2, LocateFixed, ScanLine, ShieldCheck,
 import { IncidentCard, WatchlistCard } from '../components/cards';
 import { BottomSheet } from '../components/MapView';
 import { PoliceMapView, type PoliceGeoMarker } from '../components/PoliceMapView';
+import { PoliceTrafficControl } from '../components/PoliceTrafficControl';
+import { EmergencyDispatchPanel } from '../components/EmergencyDispatchPanel';
+import { useOperation } from '../components/operations';
 import { AppHeader, ConfidenceIndicator, FilterBar, MetricCard, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
+import { selectTrafficAnomalies } from '../domain/selectors';
 import { formatDemoDate, formatDemoTime } from '../domain/time';
 import { incidentsService, watchlistService } from '../services';
 import { useCityData } from '../services/useCityData';
 import type { FleetObservation, Status, WatchlistMatch } from '../types';
 import type { CityIncident } from '../types/city';
 
-type WorkflowView={kind:'incident';id:string}|{kind:'evidence';id:string}|{kind:'assignment';id:string}|{kind:'match';id:string}|{kind:'map';id:string};
+type WorkflowView={kind:'incident';id:string}|{kind:'evidence';id:string}|{kind:'assignment';id:string}|{kind:'match';id:string}|{kind:'map';id:string}|{kind:'traffic';id:string};
 type Assignment=ReturnType<typeof useCityData>['assignments'][string];
 type PoliceMapRecord={id:string;type:'bus'|'incident'|'watchlist';group:'Fleet'|'Incidents'|'Watchlist';latitude:number;longitude:number;label:string;eyebrow:string;title:string;location:string};
 const isActive=(status:Status)=>!['Resolved','Closed','Verified','Dismissed'].includes(status);
@@ -71,16 +75,17 @@ export default function PolicePages({page,navigate,exit}:{page:string;navigate:(
  if(active?.kind==='evidence')return <EvidenceView id={active.id} onBack={back}/>;
  if(active?.kind==='assignment')return <InvestigationAssignment key={active.id} id={active.id} current={assignments[active.id]} onBack={back}/>;
  if(active?.kind==='match')return <MatchDetail key={active.id} id={active.id} onBack={back}/>;
+ if(active?.kind==='traffic')return <PoliceTrafficControl id={active.id} onBack={back}/>;
  if(active?.kind==='map')return <div className="police-workflow"><AppHeader title="Police map" subtitle={active.id} onBack={back}/><PoliceOperationalMap selected={mapSelection} onSelect={setMapSelection} open={openMapRecord}/></div>;
  return <><AppHeader title="Police Command & Control" onExit={exit}/><main>
-  {page==='overview'&&<PoliceOverview go={navigate} open={id=>open({kind:'incident',id})}/>}
-  {page==='incidents'&&<IncidentList open={id=>open({kind:'incident',id})}/>}
+  {page==='overview'&&<PoliceOverview go={navigate} open={id=>open({kind:'incident',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
+  {page==='incidents'&&<IncidentList open={id=>open({kind:'incident',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
   {page==='watchlist'&&<Watchlist open={id=>open({kind:'match',id})}/>}
   {page==='map'&&<PoliceOperationalMap selected={mapSelection} onSelect={setMapSelection} open={openMapRecord}/>}
  </main></>;
 }
 
-function PoliceOverview({go,open}:{go:(x:string)=>void;open:(x:string)=>void}){
+function PoliceOverview({go,open,openTraffic}:{go:(x:string)=>void;open:(x:string)=>void;openTraffic:(id:string)=>void}){
  const {state,incidents,watchlist,policeSummary}=useCityData();
  const priorityIncident=incidents.find(item=>isActive(item.status)&&Date.parse(item.observedAt)<=Date.parse(state.now));
  const priorityMatch=watchlist.find(item=>isActive(item.status));
@@ -88,6 +93,7 @@ function PoliceOverview({go,open}:{go:(x:string)=>void;open:(x:string)=>void}){
   <PageIntro eyebrow="POLICE COMMAND · DEMO DATA" title="Operational overview" text={`Updated ${formatDemoTime(state.now)}`}/>
   <div className="metric-grid compact"><MetricCard label="Active incidents" value={policeSummary.activeIncidents} tone="warn"/><MetricCard label="Possible matches" value={policeSummary.possibleMatches} tone="critical"/><MetricCard label="Vehicles observed" value={policeSummary.vehiclesObserved}/><MetricCard label="Alerts today" value={policeSummary.alertsToday}/></div>
   <button className="sensor-strip fleet-link" onClick={()=>go('map')}><BusFront/><div><strong>{policeSummary.reportingBuses} buses reporting</strong><span>View current fleet locations · 6-bus sample</span></div><ArrowRight/></button>
+    <TrafficControlEntries open={openTraffic}/>
   <SectionHeader title="Priority alerts" action="All incidents" onAction={()=>go('incidents')}/>
   {priorityIncident?<><IncidentCard item={incidentCard(priorityIncident)} onClick={()=>open(priorityIncident.id)}/><button className="primary full" onClick={()=>open(priorityIncident.id)}>Review incident <ArrowRight/></button></>:<p>No active incidents.</p>}
   <SectionHeader title="Recent activity"/>
@@ -97,10 +103,24 @@ function PoliceOverview({go,open}:{go:(x:string)=>void;open:(x:string)=>void}){
  </div>;
 }
 
-function IncidentList({open}:{open:(x:string)=>void}){
+function TrafficControlEntries({open}:{open:(id:string)=>void}){
+ const {state}=useCityData();
+ const anomalies=selectTrafficAnomalies(state).filter(item=>Date.parse(item.detectedAt)<=Date.parse(state.now));
+ const active=anomalies.filter(item=>!['Closed','Dismissed'].includes(item.status));
+ const candidates=active.filter(item=>item.status==='Candidate').length;
+ const closed=anomalies.filter(item=>item.status==='Closed').length;
+ return <section aria-label="Traffic control records">
+  <SectionHeader title="Traffic control"/>
+  <p className="operation-meta" role="status">{active.length} active · {candidates} awaiting officer qualification · {closed} closed</p>
+  {anomalies.length?anomalies.map(item=><button className="traffic-control-link" key={item.id} onClick={()=>open(item.id)}><div><strong>Traffic control · {item.observation?.location||state.roadSegments[item.roadSegmentId]?.name||item.id}</strong><small>{item.dispatch?.stage||item.status} · {item.ratio===null?'Ratio unavailable':`${item.ratio.toFixed(1)}× baseline`} · {item.id}</small><small>Fleet observation candidate — not an authoritative emergency</small></div><ArrowRight aria-hidden="true"/></button>):<p className="operation-meta">No traffic candidates are available.</p>}
+ </section>;
+}
+
+function IncidentList({open,openTraffic}:{open:(x:string)=>void;openTraffic:(id:string)=>void}){
  const {state,incidents}=useCityData();
  const [filter,setFilter]=useState('All');
  return <div className="page"><PageIntro eyebrow="INCIDENT RECORDS" title="Incidents" text="Observations requiring police review"/>
+    <TrafficControlEntries open={openTraffic}/>
   <div className="segmented">{['All','Active','Resolved'].map(x=><button key={x} onClick={()=>setFilter(x)} className={filter===x?'active':''}>{x}</button>)}</div>
   <div className="list-stack">{incidents.filter(x=>filter==='All'||(filter==='Resolved'?!isActive(x.status):isActive(x.status)&&Date.parse(x.observedAt)<=Date.parse(state.now))).map(x=><IncidentCard item={incidentCard(x)} key={x.id} onClick={()=>open(x.id)}/>)}</div>
  </div>;
@@ -120,8 +140,10 @@ function IncidentDetail({id,assignment,onBack,onMap,onEvidence,onAssign}:{id:str
   {assignment&&<div className="assignment-status"><CheckCircle2/><div><span>INVESTIGATION ASSIGNED</span><strong>{assignment.officer} · {assignment.team}</strong></div></div>}
   <SectionHeader title="Evidence"/><button className="evidence-preview" onClick={onEvidence}><img src={x.image} alt="Traffic observation evidence"/><span>Review evidence</span><ArrowRight/></button>
   <Surface className="operational-flow"><SectionHeader title="Incident progression"/><OperationalTimeline incident={x}/></Surface>
+    {x.resolvedAt&&<p className="operation-meta">Resolved {formatDemoDate(x.resolvedAt)} · {x.resolutionSummary}</p>}
+    <EmergencyDispatchPanel event={{kind:'incident',id}} actor="Police operator"/>
   <Surface><SectionHeader title="Location" action="Open map" onAction={onMap}/><button className="location-row" onClick={onMap}><LocateFixed/><div><strong>{x.location}</strong><span>{x.latitude}° N, {x.longitude}° E</span></div><ArrowRight/></button></Surface>
-  <button className="primary full" onClick={onAssign}>{assignment?'Update assignment':'Assign for investigation'}</button>
+    <button className="primary full" disabled={Boolean(x.resolvedAt)||['Resolved','Closed'].includes(x.status)} onClick={onAssign}>{x.resolvedAt||['Resolved','Closed'].includes(x.status)?'Incident resolved — assignment unavailable':assignment?'Update assignment':'Assign for investigation'}</button>
  </main></div>;
 }
 
@@ -152,21 +174,17 @@ function InvestigationAssignment({id,current,onBack}:{id:string;current?:Assignm
  const teams=Object.values(state.teams).filter(team=>state.departments[team.departmentId]?.role==='police');
  const [officer,setOfficer]=useState(current?.officer||'Inspector R. Kumar');
  const [teamId,setTeamId]=useState(()=>teams.find(team=>team.name===current?.team)?.id||teams[0]?.id||'');
- const [saving,setSaving]=useState(false);
- const [error,setError]=useState('');
- const save=async()=>{
-  if(saving)return;
-  setSaving(true);setError('');
-  try{await incidentsService.assign(id,teamId,officer);onBack()}
-  catch(cause){setError(cause instanceof Error?cause.message:'Unable to save the assignment. Please try again.')}
-  finally{setSaving(false)}
- };
+ const {busy:saving,error,run}=useOperation();
+ const incident=state.incidents[id];
+ const resolved=Boolean(incident?.resolvedAt)||['Resolved','Closed'].includes(incident?.status||'');
+ const save=()=>run(async()=>{await incidentsService.assign(id,teamId,officer);onBack()});
  return <div className="police-workflow"><AppHeader title="Assign investigation" subtitle={id} onBack={onBack}/><main className="page detail"><PageIntro eyebrow="CASE ASSIGNMENT" title="Investigation owner"/>
   <Surface className="assignment-form"><label>Officer<select value={officer} disabled={saving} onChange={event=>setOfficer(event.target.value)}>
    {[...new Set(['Inspector R. Kumar','Sub-Inspector P. Devi','Inspector A. Selvan',...(current?.officer?[current.officer]:[])])].map(name=><option key={name}>{name}</option>)}
   </select></label><label>Team<select value={teamId} disabled={saving} onChange={event=>setTeamId(event.target.value)}>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select></label></Surface>
+    {resolved&&<p role="status">This incident is resolved. Its investigation assignment cannot be changed.</p>}
   {error&&<p role="alert">{error}</p>}
-  <button className="primary full" disabled={saving||!teamId} onClick={save}>Confirm assignment</button>
+    <button className="primary full" disabled={saving||!teamId||!incident||resolved} onClick={save}>Confirm assignment</button>
  </main></div>;
 }
 

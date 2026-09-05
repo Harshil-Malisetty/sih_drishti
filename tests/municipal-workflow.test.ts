@@ -13,6 +13,8 @@ describe.each(municipalCases)('%s municipal workflow', (_kind, issueId, departme
     for (const team of Object.values(store.getSnapshot().teams).filter(item => item.departmentId !== departmentId)) {
       expectRejected(store, { type: 'assign', event, teamId: team.id, assignee: 'Field lead' }, /responsible department/);
     }
+    store.dispatch({ type: 'qualifyIssue', issueId, actor: 'Municipal admin' });
+    expect(read().workflowStage).toBe('Qualified');
     store.dispatch({ type: 'assign', event, teamId: `${departmentId}-team`, assignee: 'Field lead' });
     const assignment = selectAssignment(store.getSnapshot(), event)!;
     expect(assignment).toMatchObject({ event, departmentId, teamId: `${departmentId}-team`, assignee: 'Field lead' });
@@ -39,11 +41,13 @@ describe.each(municipalCases)('%s municipal workflow', (_kind, issueId, departme
     submission.evidence[0].description = 'changed outside the store';
     expect(resolution.evidence[0].description).toBe('Post-work field inspection');
     store.dispatch({ type: 'reviewResolution', reviewId: review.id, decision: 'Verified', reviewer: 'Municipal admin', note: 'Evidence checked' });
-    expect(read()).toMatchObject({ workflowStage: 'Closed', status: 'Verified', currentCondition: submission.resultingCondition });
+    expect(read()).toMatchObject({ workflowStage: 'Verified', status: 'Verified', currentCondition: submission.resultingCondition });
     expect(read().repair?.result).toBe('Verified');
     expect(publicCondition()).toMatchObject({ verified: true, condition: submission.resultingCondition, verifiedAt: store.getSnapshot().now, evidence: [{ capturedAt: submission.evidence[0].capturedAt }] });
     expect(selectCitizenAlerts(store.getSnapshot()).some(item => item.sourceId === issueId)).toBe(false);
     expect(pending.reviews[review.id].decision).toBe('Pending');
+    store.dispatch({ type: 'closeIssue', issueId, actor: 'Municipal admin' });
+    expect(read()).toMatchObject({ workflowStage: 'Closed', status: 'Closed' });
     expectIntegrity(store.getSnapshot());
   });
 });

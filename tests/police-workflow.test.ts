@@ -98,6 +98,8 @@ describe('traffic anomaly qualification and dispatch', () => {
     expect(selectPlannerRoads(store.getSnapshot()).find(item => item.id === 'anna')?.hourlyVehicles).toBe(60);
     store.dispatch(verify);
     expect(store.getSnapshot().reviews[reviewId].decision).toBe('Verified');
+    expect(store.getSnapshot().dispatches[dispatchId].stage).toBe('Verified');
+    store.dispatch({ type: 'closeDispatch', dispatchId, actor: 'Police admin' });
     expect(selectTrafficAnomalies(store.getSnapshot())[0]).toMatchObject({ status: 'Closed', ratio: 184 / 60, dispatch: { stage: 'Closed' } });
     expect(store.getSnapshot().trafficObservations['TR-1']).toEqual(trigger);
     const closed = store.getSnapshot();

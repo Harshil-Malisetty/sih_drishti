@@ -1,6 +1,8 @@
 import { cityStore } from './city';
 import type { CityCommand } from '../domain/cityStore';
-import type { EventRef, ResolutionEvidence } from '../types/city';
+import type { EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
+import { completionEvidence } from '../data/demo/operations';
+import { selectMunicipalTasks } from '../domain/operations';
 import { selectAssignment, selectCitizenAlerts, selectCitizenContext, selectCitizenRoute, selectIssues, selectPlannerRoads, selectPoliceSummary, selectTraffic, selectTrafficAnomalies, selectWatchlist } from '../domain/selectors';
 
 // Promise-shaped boundaries remain replaceable by HTTP implementations. No independent caches.
@@ -18,6 +20,9 @@ export const watchlistService = {
 	decide: (matchId: string, decision: 'Verified' | 'Dismissed') => command({ type: 'decideMatch', matchId, decision }).then(state => structuredClone(state.watchlist[matchId])),
 };
 export const municipalService = {
+	qualify: (issueId: string, actor: string) => command({ type: 'qualifyIssue', issueId, actor }).then(() => municipalService.getRoadDefect(issueId)),
+	close: (issueId: string, actor: string) => command({ type: 'closeIssue', issueId, actor }).then(() => municipalService.getRoadDefect(issueId)),
+	getTasks: () => query(() => selectMunicipalTasks(cityStore.getSnapshot())),
 	getRoadDefects: () => query(() => selectIssues(cityStore.getSnapshot())),
 	getRoadDefect: (id: string) => query(() => selectIssues(cityStore.getSnapshot()).find(item => item.id === id)),
 	getMunicipalMapData: () => query(() => selectIssues(cityStore.getSnapshot())),
@@ -35,10 +40,18 @@ export const municipalService = {
 	runConstructionSimulation: (input: { roadSegmentId: string; duration: string; startsAt?: string } = { roadSegmentId: 'anna', duration: '4 months' }) => command({ type: 'createScenario', ...input }).then(state => structuredClone(Object.values(state.scenarios).at(-1)!)),
 	getScenario: (id: string) => query(() => cityStore.getSnapshot().scenarios[id]),
 	getProjects: () => query(() => Object.values(cityStore.getSnapshot().projects)),
-	approveProject: (projectId: string, actor: string) => command({ type: 'approveProject', projectId, actor }).then(state => structuredClone(state.projects[projectId])),
+	approveProject: (projectId: string, actor: string, details?: { title: string; projectType: MunicipalProject['projectType'] }) => command({ type: 'approveProject', projectId, actor, ...details }).then(state => structuredClone(state.projects[projectId])),
 	cancelProject: (projectId: string) => command({ type: 'cancelProject', projectId }).then(state => structuredClone(state.projects[projectId])),
 };
 export const workflowService = {
+	submitDemoResolution: (event: EventRef, summary: string, resultingCondition: string) => Promise.resolve().then(() => {
+		const state = cityStore.getSnapshot();
+		const assignment = selectAssignment(state, event);
+		return workflowService.submitResolution({ event, summary, resultingCondition, submittedBy: assignment?.assignee || 'Demo field team', evidence: [{
+			id: `FIELD-${event.id}-${state.revision + 1}`, image: completionEvidence, capturedAt: state.now,
+			description: 'Local illustrative field-completion fixture — not an actual post-repair photograph',
+		}] });
+	}),
 	getAssignment: (event: EventRef) => query(() => selectAssignment(cityStore.getSnapshot(), event)),
 	getTeams: (departmentId?: string) => query(() => Object.values(cityStore.getSnapshot().teams).filter(team => !departmentId || team.departmentId === departmentId)),
 	submitResolution: (input: { event: EventRef; submittedBy: string; summary: string; resultingCondition: string; evidence: ResolutionEvidence[] }) => command({ type: 'submitResolution', ...input }).then(state => structuredClone(Object.values(state.resolutions).at(-1)!)),
@@ -46,11 +59,19 @@ export const workflowService = {
 	reviewResolution: (reviewId: string, decision: 'Verified' | 'Returned', reviewer: string, note: string) => command({ type: 'reviewResolution', reviewId, decision, reviewer, note }).then(state => structuredClone(state.reviews[reviewId])),
 };
 export const policeTrafficService = {
+	recordFollowUp: (anomalyId: string, actor: string) => command({ type: 'observeRecovery', anomalyId, actor }).then(() => undefined),
+	close: (dispatchId: string, actor: string) => command({ type: 'closeDispatch', dispatchId, actor }).then(state => structuredClone(state.dispatches[dispatchId])),
 	getAnomalies: () => query(() => selectTrafficAnomalies(cityStore.getSnapshot())),
 	qualify: (anomalyId: string, actor: string) => command({ type: 'qualifyAnomaly', anomalyId, actor }).then(state => structuredClone(state.anomalies[anomalyId])),
 	requestDispatch: (anomalyId: string, actor: string) => command({ type: 'requestDispatch', anomalyId, actor }).then(state => structuredClone(Object.values(state.dispatches).find(item => item.anomalyId === anomalyId)!)),
 	assign: (anomalyId: string, teamId: string, assignee: string) => command({ type: 'assign', event: { kind: 'anomaly', id: anomalyId }, teamId, assignee }).then(state => selectAssignment(state, { kind: 'anomaly', id: anomalyId })),
 	advanceDispatch: (dispatchId: string, stage: 'En route' | 'On scene', actor: string) => command({ type: 'advanceDispatch', dispatchId, stage, actor }).then(state => structuredClone(state.dispatches[dispatchId])),
+};
+export const emergencyService = {
+	request: (event: EventRef, reason: string, actor: string) => command({ type: 'requestEmergency', event, reason, actor }).then(() => undefined),
+	assign: (dispatchId: string, teamId: string, actor: string) => command({ type: 'assignEmergency', dispatchId, teamId, actor }).then(() => undefined),
+	advance: (dispatchId: string, stage: Exclude<EmergencyStage, 'Requested' | 'Assigned'>, actor: string, outcome?: string) => command({ type: 'advanceEmergency', dispatchId, stage, actor, outcome }).then(() => undefined),
+	resolveIncident: (dispatchId: string, actor: string) => command({ type: 'resolveEmergencyIncident', dispatchId, actor }).then(() => undefined),
 };
 export const trafficService = {
 	getTrafficData: () => query(() => selectTraffic(cityStore.getSnapshot())),

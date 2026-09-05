@@ -16,12 +16,12 @@ export interface CityTrafficObservation extends TrafficObservation {
   baselineSource: string;
 }
 export interface CityBus extends Bus { roadSegmentId: string; observedAt: string }
-export interface CityIncident extends Incident { roadSegmentId: string; observedAt: string }
+export interface CityIncident extends Incident { roadSegmentId: string; observedAt: string; resolvedAt?: string; emergencyDispatchId?: string; resolutionSummary?: string }
 export type IssueKind = 'pothole' | 'waterlogging' | 'zebra-crossing' | 'divider' | 'signboard' | 'guardrail' | 'school-crossing';
-export interface Department { id: string; name: string; role: 'municipal' | 'police' }
+export interface Department { id: string; name: string; role: 'municipal' | 'police' | 'response' }
 export interface Team { id: string; departmentId: string; name: string }
 export type EventRef = { kind: 'municipal'; id: string } | { kind: 'incident'; id: string } | { kind: 'anomaly'; id: string };
-export type WorkflowStage = 'Detected' | 'Assigned' | 'Acknowledged' | 'In progress' | 'Admin review' | 'Closed';
+export type WorkflowStage = 'Detected' | 'Qualified' | 'Assigned' | 'Acknowledged' | 'In progress' | 'Admin review' | 'Verified' | 'Closed';
 export interface WorkflowEntry { at: string; action: string; actor: string }
 export interface MunicipalIssue extends RoadDefect {
   kind: IssueKind;
@@ -48,8 +48,14 @@ export interface TrafficAnomaly {
   status: 'Candidate' | 'Qualified' | 'Dismissed' | 'Dispatched' | 'Closed';
   history: WorkflowEntry[];
 }
-export type DispatchStage = 'Requested' | 'Assigned' | 'En route' | 'On scene' | 'Admin review' | 'Closed';
+export type DispatchStage = 'Requested' | 'Assigned' | 'En route' | 'On scene' | 'Admin review' | 'Verified' | 'Closed';
 export interface PoliceDispatch { id: string; anomalyId: string; requestedAt: string; stage: DispatchStage; history: WorkflowEntry[] }
+export type EmergencyStage = 'Requested' | 'Assigned' | 'En route' | 'On scene' | 'Response complete' | 'Discharged';
+export interface EmergencyDispatch {
+  id: string; event: EventRef; reason: string; requestedAt: string; stage: EmergencyStage;
+  teamId?: string; completedAt?: string; dischargedAt?: string; outcome?: string; resolvedAt?: string;
+  history: WorkflowEntry[];
+}
 export type ImpactSeverity = Extract<Severity, 'High' | 'Medium' | 'Low'> | 'Severe';
 export interface AffectedRoadSegment {
   roadSegmentId: string; restriction: 'Closed' | 'Delay'; additionalVehicles: number;
@@ -67,6 +73,7 @@ export interface PlanningScenario {
 }
 export interface MunicipalProject {
   id: string; scenarioId: string; title: string; status: 'Draft' | 'Approved' | 'Cancelled';
+  projectType: 'Road works' | 'Resurfacing';
   createdAt: string; approvedAt?: string; approvedBy?: string; publishedAt?: string;
 }
 export interface PublicRoadCondition {
@@ -77,7 +84,19 @@ export interface PublicRoadImpact extends AffectedRoadSegment {
   projectId: string; title: string; roadName: string; startsAt: string; endsAt: string;
 }
 export interface CitizenMobilityContext {
-  asOf: string; traffic: TrafficObservation[]; conditions: PublicRoadCondition[]; impacts: PublicRoadImpact[];
+  asOf: string; traffic: TrafficObservation[]; conditions: PublicRoadCondition[]; impacts: PublicRoadImpact[]; projects: PublicMunicipalProject[];
+}
+export interface PublicMunicipalProject {
+  id: string; projectId: string; title: string; projectType: MunicipalProject['projectType'];
+  roadSegmentId: string; roadName: string; status: 'Planned' | 'Active' | 'Completed';
+  startsAt: string; endsAt: string; source: 'Municipal planning system';
+  affectedCorridors: { roadSegmentId: string; name: string; restriction: 'Closed' | 'Delay'; delayMinutes: number }[];
+  alternativeCorridors: string[]; peakDelayMinutes: number;
+}
+export interface MunicipalTask {
+  id: string; kind: 'Assignment' | 'Field action' | 'Verification' | 'Closure' | 'Project' | 'Citizen update';
+  title: string; detail: string; at: string; actionRequired: boolean;
+  target: { kind: 'issue'; id: string } | { kind: 'scenario'; id: string };
 }
 export interface RouteLeg { roadSegmentId: string; fraction: number }
 export interface DemoJourney {
@@ -95,6 +114,7 @@ export interface CityState {
   assignments: Record<string, DepartmentAssignment>; resolutions: Record<string, FieldResolution>;
   reviews: Record<string, AdminReview>; anomalies: Record<string, TrafficAnomaly>;
   dispatches: Record<string, PoliceDispatch>; scenarios: Record<string, PlanningScenario>;
+  emergencyDispatches: Record<string, EmergencyDispatch>;
   projects: Record<string, MunicipalProject>; journey: DemoJourney;
 }
 export interface CitizenJourney extends Omit<CitizenRoute, 'currentMinutes' | 'alternativeMinutes'> {

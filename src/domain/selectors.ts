@@ -1,7 +1,7 @@
 import type { CitizenAlert, PlannerRoadSegment, Status, TrafficLevel, TrafficObservation, WatchlistMatch } from '../types';
 import type {
   CitizenJourney, CitizenMobilityContext, CityState, CityTrafficObservation, DepartmentAssignment,
-  EventRef, MunicipalIssue, PublicRoadCondition, PublicRoadImpact, RouteLeg,
+  EventRef, MunicipalIssue, PublicMunicipalProject, PublicRoadCondition, PublicRoadImpact, RouteLeg,
 } from '../types/city';
 import { demoDate, formatDemoDate, formatDemoTime, relativeDemoTime } from './time';
 
@@ -154,6 +154,23 @@ function activeImpacts(state: CityState): PublicRoadImpact[] {
   });
 }
 
+/** Public project records are projections of approval + the reviewed snapshot, never a second store. */
+export function selectPublicProjects(state: CityState): PublicMunicipalProject[] {
+  const active = activeImpacts(state);
+  return Object.values(state.projects).filter(project => project.status === 'Approved' && project.publishedAt && Date.parse(project.publishedAt) <= Date.parse(state.now)).map(project => {
+    const scenario = state.scenarios[project.scenarioId];
+    const status = Date.parse(state.now) < Date.parse(scenario.startsAt) ? 'Planned' : Date.parse(state.now) >= Date.parse(scenario.endsAt) ? 'Completed' : 'Active';
+    return {
+      id: `mobility-${project.id}`, projectId: project.id, title: project.title, projectType: project.projectType,
+      roadSegmentId: scenario.roadSegmentId, roadName: roadName(state, scenario.roadSegmentId), status,
+      startsAt: scenario.startsAt, endsAt: scenario.endsAt, source: 'Municipal planning system',
+      affectedCorridors: scenario.affected.map(impact => ({ roadSegmentId: impact.roadSegmentId, name: roadName(state, impact.roadSegmentId), restriction: impact.restriction, delayMinutes: impact.delayMinutes })),
+      alternativeCorridors: scenario.affected.filter(impact => impact.restriction !== 'Closed' && !active.some(other => other.roadSegmentId === impact.roadSegmentId && other.restriction === 'Closed')).map(impact => roadName(state, impact.roadSegmentId)),
+      peakDelayMinutes: scenario.delay,
+    };
+  });
+}
+
 // Public evidence deliberately omits resolution/review IDs, operators, bus IDs and police details.
 type PublicCondition = PublicRoadCondition & { verifiedAt?: string; evidence: { capturedAt: string }[] };
 
@@ -163,6 +180,7 @@ function publicIssue(state: CityState, issue: MunicipalIssue): PublicCondition {
   const evidence = verified && resolution ? resolution.evidence
     .filter(item => byTime(item.capturedAt, state.now) <= 0).map(item => ({ capturedAt: item.capturedAt })) : [];
   const times = [observedTime(issue.lastSeen), ...evidence.map(item => item.capturedAt),
+    ...(verified && review?.reviewedAt ? [review.reviewedAt] : []),
     ...(issue.observations || []).map(item => item.observedAt || observedTime(item.date))]
     .filter(at => byTime(at, state.now) <= 0).sort(byTime);
   return {
@@ -185,7 +203,7 @@ export function selectCitizenContext(state: CityState): CitizenMobilityContext &
       severity: incident.severity, verified: false, updatedAt: incident.observedAt, evidence: [],
     });
   }
-  return { asOf: state.now, traffic: selectTraffic(state), conditions, impacts: activeImpacts(state) };
+  return { asOf: state.now, traffic: selectTraffic(state), conditions, impacts: activeImpacts(state), projects: selectPublicProjects(state) };
 }
 
 export function selectCitizenAlerts(state: CityState): CitizenAlert[] {
@@ -250,9 +268,9 @@ export function selectCitizenRoute(state: CityState): CitizenJourney {
   const closedNames = [...new Set(relevant.filter(impact => impact.restriction === 'Closed').map(impact => impact.roadName))];
   const currentVia = roadName(state, currentId);
   const unavailable = currentMinutes === null || alternativeMinutes === null;
-  const reason = unavailable
+  const reason = (currentMinutes === null && alternativeMinutes !== null && closedNames.length ? `Route B avoids active municipal road work on ${closedNames.join(', ')}. ` : '') + (unavailable
     ? `${currentMinutes === null ? 'Current route unavailable. ' : ''}${alternativeMinutes === null ? 'Alternative route unavailable. ' : ''}${closedNames.length ? `Active approved closure: ${closedNames.join(', ')}. ` : 'Route segment data is unavailable. '}Use an open route and follow local traffic advisories; no external routing has been performed.`
-    : `${alternativeMinutes < currentMinutes ? 'Alternative has a lower estimated travel time' : 'Alternative is not currently faster'}. Estimates use recorded corridor baselines and active approved project delays; demo advisory only, not turn-by-turn routing.`;
+    : `${alternativeMinutes < currentMinutes ? 'Alternative has a lower estimated travel time' : 'Alternative is not currently faster'}. Estimates use recorded corridor baselines and active approved project delays; demo advisory only, not turn-by-turn routing.`);
   return {
     id: journey.id, origin: journey.origin, destination: journey.destination,
     currentMinutes, alternativeMinutes, currentVia, currentTraffic: traffic(currentId),
