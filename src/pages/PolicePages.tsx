@@ -5,6 +5,7 @@ import { BottomSheet } from '../components/MapView';
 import { PoliceMapView, type PoliceGeoMarker, type PoliceMapCamera } from '../components/PoliceMapView';
 import { PoliceTrafficControl } from '../components/PoliceTrafficControl';
 import { EmergencyDispatchPanel } from '../components/EmergencyDispatchPanel';
+import { CitizenReportInbox } from '../components/CitizenReports';
 import { useOperation } from '../components/operations';
 import { notifyAction } from '../components/ActionFeedback';
 import { AppHeader, ConfidenceIndicator, FilterBar, MetricCard, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
@@ -96,6 +97,7 @@ function PoliceOverview({go,open,openTraffic}:{go:(x:string)=>void;open:(x:strin
   <div className="metric-grid compact"><MetricCard label="Active incidents" value={policeSummary.activeIncidents} tone="warn"/><MetricCard label="Possible matches" value={policeSummary.possibleMatches} tone="critical"/><MetricCard label="Vehicle observations" value={policeSummary.vehiclesObserved} meta="Latest corridor windows"/><MetricCard label="Alerts today" value={policeSummary.alertsToday}/></div>
   <button className="sensor-strip fleet-link" onClick={()=>go('map')}><BusFront/><div><strong>{policeSummary.reportingBuses} buses reporting</strong><span>View current fleet locations · 6-bus sample</span></div><ArrowRight/></button>
     <TrafficControlEntries open={openTraffic}/>
+  <CitizenReportInbox recipient="police" openRecord={open}/>
   <SectionHeader title="Priority alerts" action="All incidents" onAction={()=>go('incidents')}/>
   {priorityIncident?<><IncidentCard item={incidentCard(priorityIncident)} onClick={()=>open(priorityIncident.id)}/><button className="primary full" onClick={()=>open(priorityIncident.id)}>Review incident <ArrowRight/></button></>:<p>No active incidents.</p>}
   <SectionHeader title="Recent activity"/>
@@ -123,6 +125,7 @@ function IncidentList({open,openTraffic}:{open:(x:string)=>void;openTraffic:(id:
  const [filter,setFilter]=useState('All');
  return <div className="page"><PageIntro eyebrow="INCIDENT RECORDS" title="Incidents" text="Observations requiring police review"/>
     <TrafficControlEntries open={openTraffic}/>
+  <CitizenReportInbox recipient="police" openRecord={open}/>
   <div className="segmented">{['All','Active','Resolved'].map(x=><button key={x} aria-pressed={filter===x} onClick={()=>setFilter(x)} className={filter===x?'active':''}>{x}</button>)}</div>
   <div className="list-stack">{incidents.filter(x=>filter==='All'||(filter==='Resolved'?!isActive(x.status):isActive(x.status)&&Date.parse(x.observedAt)<=Date.parse(state.now))).map(x=><IncidentCard item={incidentCard(x)} key={x.id} onClick={()=>open(x.id)}/>)}</div>
  </div>;
@@ -134,16 +137,19 @@ function MissingRecord({id,onBack}:{id:string;onBack:()=>void}){
 
 function IncidentDetail({id,assignment,onBack,onMap,onEvidence,onAssign}:{id:string;assignment?:Assignment;onBack:()=>void;onMap:()=>void;onEvidence:()=>void;onAssign:()=>void}){
  const {incidents}=useCityData();
+ const [clearance,setClearance]=useState('');
+ const {busy,error,run}=useOperation();
  const x=incidents.find(item=>item.id===id);
  if(!x)return <MissingRecord id={id} onBack={onBack}/>;
  return <div className="police-workflow"><AppHeader title="Incident record" subtitle={`${x.id} · ${x.severity.toUpperCase()} PRIORITY`} onBack={onBack}/><main className="page detail">
   <div className="title-row"><div><h1>{x.type}</h1><p>{x.location} · {formatDemoDate(x.observedAt)}</p></div><SeverityBadge value={x.severity}/></div>
-  <Surface className="facts"><div><span>Observed by</span><strong>{x.busId}</strong></div><div><span>Route</span><strong>{x.route}</strong></div><div><span>Vehicle</span><strong>{x.vehicleType}</strong></div><div><span>Plate</span><strong>{hasRegistration(x)?x.registrationNumber:'Not available'}</strong></div></Surface>
+  {x.citizenReportId ? <Surface><p>Citizen report · {x.citizenReportId}</p><p>{x.citizenDescription}</p><p className="operation-meta">Reporter-selected corridor; requires officer assessment. No fleet detection or vehicle identification.</p></Surface> : <Surface className="facts"><div><span>Observed by</span><strong>{x.busId}</strong></div><div><span>Route</span><strong>{x.route}</strong></div><div><span>Vehicle</span><strong>{x.vehicleType}</strong></div><div><span>Plate</span><strong>{hasRegistration(x)?x.registrationNumber:'Not available'}</strong></div></Surface>}
   {assignment&&<div className="assignment-status"><CheckCircle2/><div><span>INVESTIGATION ASSIGNED</span><strong>{assignment.officer} · {assignment.team}</strong></div></div>}
-  <SectionHeader title="Evidence"/><button className="evidence-preview" onClick={onEvidence}><img src={x.image} alt="Traffic observation evidence"/><span>Review evidence</span><ArrowRight/></button>
+  <SectionHeader title="Evidence"/>{x.image ? <button className="evidence-preview" onClick={onEvidence}><img src={x.image} alt={x.citizenReportId?'Citizen-submitted photo':'Traffic observation evidence'}/><span>Review evidence</span><ArrowRight/></button> : <p className="operation-meta">No photo attached. The report description is available above.</p>}
   <Surface className="operational-flow"><SectionHeader title="Incident progression"/><OperationalTimeline incident={x}/></Surface>
     {x.resolvedAt&&<p className="operation-meta">Resolved {formatDemoDate(x.resolvedAt)} · {x.resolutionSummary}</p>}
     <EmergencyDispatchPanel event={{kind:'incident',id}} actor="Police operator"/>
+  {x.citizenReportId&&x.status==='Investigating'&&<Surface className="operation-panel"><h2>Officer clearance</h2><p className="operation-meta">Record the assessed outcome. This demo action removes the public obstruction warning; it does not dispatch a real response.</p><div className="operation-form"><label>Clearance note<textarea value={clearance} onChange={event=>setClearance(event.target.value)} maxLength={1000} disabled={busy}/></label><button className="primary full" disabled={busy||!clearance.trim()} onClick={()=>run(()=>incidentsService.resolveCitizenReport(id,'Police operator',clearance),'Officer clearance recorded.')}>Record cleared obstruction</button>{error&&<p role="alert">{error}</p>}</div></Surface>}
   <Surface><SectionHeader title="Location" action="Open map" onAction={onMap}/><button className="location-row" onClick={onMap}><LocateFixed/><div><strong>{x.location}</strong><span>{x.latitude}° N, {x.longitude}° E</span></div><ArrowRight/></button></Surface>
     <button className="primary full" disabled={Boolean(x.resolvedAt)||['Resolved','Closed'].includes(x.status)} onClick={onAssign}>{x.resolvedAt||['Resolved','Closed'].includes(x.status)?'Incident resolved — assignment unavailable':assignment?'Update assignment':'Assign for investigation'}</button>
  </main></div>;
@@ -155,7 +161,7 @@ function OperationalTimeline({incident}:{incident:CityIncident}){
   ...(hasRegistration(incident)?[{label:'Registration recorded',timestamp:formatDemoTime(incident.observedAt),detail:`${incident.registrationNumber} · confidence ${incident.registrationConfidence}%`}]:[]),
  ];
  return <div className="operational-timeline">
-  {steps.map((step,index)=><div className={index===0?'observed':index===steps.length-1?'alert':'processing'} key={`${index}-${step.label}`}><i>✓</i><p><strong>{step.label}</strong><span>{step.timestamp}</span>{step.detail!==incident.type&&<small>{step.detail}</small>}</p></div>)}
+  {steps.map((step,index)=><div className={index===0?'observed':index===steps.length-1?'alert':'processing'} key={`${index}-${step.label}`}><i>✓</i><p><strong>{step.label}</strong><span>{/^\d{4}-\d{2}-\d{2}T/.test(step.timestamp)?formatDemoDate(step.timestamp):step.timestamp}</span>{step.detail!==incident.type&&<small>{step.detail}</small>}</p></div>)}
   <div className="action"><i>{steps.length+1}</i><p><strong>Officer review</strong><span>{incident.status}</span></p></div>
  </div>;
 }
@@ -186,7 +192,8 @@ function InvestigationAssignment({id,current,onBack}:{id:string;current?:Assignm
   </select></label><label>Team<select value={teamId} disabled={saving} onChange={event=>setTeamId(event.target.value)}>{teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select></label></Surface>
     {resolved&&<p role="status">This incident is resolved. Its investigation assignment cannot be changed.</p>}
   {error&&<p role="alert">{error}</p>}
-    <button className="primary full" disabled={saving||!teamId||!incident||resolved} onClick={save}>Confirm assignment</button>
+    {incident?.citizenReportId&&<p className="operation-meta">Confirm the obstruction has been assessed before assignment. This publishes a general road warning, never the reporter's description or photo.</p>}
+    <button className="primary full" disabled={saving||!teamId||!incident||resolved} onClick={save}>{incident?.citizenReportId?'Confirm assessment & assignment':'Confirm assignment'}</button>
  </main></div>;
 }
 
@@ -249,7 +256,7 @@ function PoliceMapDetails({record}:{record:PoliceMapRecord}){
   const item=incidents.find(incident=>incident.id===record.id);
   if(!item)return null;
   const assignment=assignments[item.id];
-  return <div className="map-detail-grid"><span>Timestamp<strong>{formatDemoDate(item.observedAt)}</strong></span><span>Location<strong>{item.location}</strong></span><span>Vehicle / person<strong>{item.vehicleType}</strong></span><span>Status<strong>{item.status}</strong></span><span>Evidence<strong>{item.busId} · Route {item.route}</strong></span><span>Assignment<strong>{assignment?`${assignment.officer} · ${assignment.team}`:'Unassigned'}</strong></span></div>;
+  return <div className="map-detail-grid"><span>Timestamp<strong>{formatDemoDate(item.observedAt)}</strong></span><span>Location<strong>{item.location}</strong></span><span>Vehicle / person<strong>{item.vehicleType}</strong></span><span>Status<strong>{item.status}</strong></span><span>Evidence<strong>{item.citizenReportId?`Citizen report · ${item.image?'Photo attached':'No photo'}`:`${item.busId} · Route ${item.route}`}</strong></span><span>Assignment<strong>{assignment?`${assignment.officer} · ${assignment.team}`:'Unassigned'}</strong></span></div>;
  }
  const item=watchlist.find(match=>match.id===record.id);
  if(!item)return null;

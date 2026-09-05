@@ -13,9 +13,9 @@ type WorkspaceRole = Exclude<Role, 'landing'>;
 type Screen = 'landing' | 'signin' | 'workspace';
 
 const roleDetails = {
- police: { label: 'Police', workspace: 'Police Command', sub: 'Incidents & Watchlist', Icon: PoliceIcon },
- municipal: { label: 'Municipal', workspace: 'Municipal Operations', sub: 'Roads & Infrastructure', Icon: MunicipalIcon },
- citizen: { label: 'Citizen', workspace: 'Citizen Mobility', sub: 'Traffic & Mobility', Icon: CitizenIcon }
+ police: { label: 'Police', workspace: 'Police Command', sub: 'Incidents & Watchlist', identity: 'POLICE-204', Icon: PoliceIcon },
+ municipal: { label: 'Municipal', workspace: 'Municipal Operations', sub: 'Roads & Infrastructure', identity: 'MUNICIPAL-118', Icon: MunicipalIcon },
+ citizen: { label: 'Citizen', workspace: 'Citizen Mobility', sub: 'Traffic & Mobility', identity: 'CITIZEN-032', Icon: CitizenIcon }
 };
 
 function savedRole(): WorkspaceRole | null {
@@ -66,15 +66,18 @@ function BrandHeader(){return <header><img className="brand-logo" src={drishtiLo
 
 function Landing({enter}:{enter:(r:WorkspaceRole)=>void}){
  const roles=(Object.keys(roleDetails) as WorkspaceRole[]).map(id=>({id,...roleDetails[id]}));
+ const title=useRef<HTMLHeadingElement>(null);
+ useEffect(()=>{title.current?.focus({preventScroll:true});window.scrollTo(0,0)},[]);
  return <main className="landing"><BrandHeader/>
   <section className="hero" aria-labelledby="landing-title">
-   <h1 id="landing-title">One fleet. A city of insights.</h1>
+   <h1 id="landing-title" ref={title} tabIndex={-1}>One fleet. A city of insights.</h1>
+   <p className="hero-summary">Every bus becomes an intelligent moving sensor for the city.</p>
    <div className="intelligence-flow" aria-label="From bus cameras to city services">
-    <ol><li><BusFront aria-hidden="true"/><span>Bus cameras</span></li><li><ArrowRight aria-hidden="true"/><Cpu aria-hidden="true"/><span>Edge processing</span></li><li><ArrowRight aria-hidden="true"/><Network aria-hidden="true"/><span>City intelligence</span></li></ol>
+   <ol><li><BusFront aria-hidden="true"/><span>Bus cameras</span></li><li><ArrowRight aria-hidden="true"/><Cpu aria-hidden="true"/><span>Edge AI</span></li><li><ArrowRight aria-hidden="true"/><Network aria-hidden="true"/><span>City intelligence</span></li></ol>
     <div className="intelligence-audiences"><span>Police</span><span>Municipal</span><span>Citizens</span></div>
    </div>
   </section>
-  <section className="role-section" aria-labelledby="workspace-title"><div><h2 id="workspace-title">Select your workspace</h2></div>
+   <section className="role-section" aria-labelledby="workspace-title"><div><h2 id="workspace-title">Select your workspace</h2><p className="workspace-caption">Three roles. One shared city view.</p></div>
    <div className="role-list">{roles.map(({id,label,sub,Icon})=><button type="button" className={`role-card role-card--${id}`} onClick={()=>enter(id)} key={id}><i><Icon/></i><div><strong>{label}</strong><span>{sub}</span></div><ChevronRight aria-hidden="true"/></button>)}</div>
   </section>
   <footer><span>Simulated data · No account needed</span><b>Demo environment</b></footer>
@@ -83,8 +86,10 @@ function Landing({enter}:{enter:(r:WorkspaceRole)=>void}){
 
 function SignIn({role,onBack,onSubmit}:{role:WorkspaceRole;onBack:()=>void;onSubmit:()=>void}){
  const details=roleDetails[role];const Icon=details.Icon;
+ const title=useRef<HTMLHeadingElement>(null);
+ useEffect(()=>{title.current?.focus({preventScroll:true});window.scrollTo(0,0)},[]);
  const submit=(event:FormEvent)=>{event.preventDefault();onSubmit()};
- return <main className={`sign-in ${role}`}><BrandHeader/><button type="button" className="signin-back" onClick={onBack}><ArrowLeft aria-hidden="true"/> Back</button><section className="signin-panel"><i className="signin-role-icon"><Icon/></i><span className="eyebrow">DEMO WORKSPACE</span><h1>{details.workspace}</h1><p id="demo-access-note">Explore with simulated city data. No account or credentials required.</p><form onSubmit={submit} aria-describedby="demo-access-note"><button className="primary full" type="submit">Enter demo workspace<ArrowRight aria-hidden="true"/></button></form></section></main>;
+ return <main className={`sign-in ${role}`}><BrandHeader/><button type="button" className="signin-back" onClick={onBack}><ArrowLeft aria-hidden="true"/> Back</button><section className="signin-panel"><i className="signin-role-icon"><Icon/></i><span className="eyebrow">Demo access</span><h1 ref={title} tabIndex={-1}>{details.workspace}</h1><p id="demo-access-note">A demonstration environment with simulated city data. No account or real authentication.</p><form onSubmit={submit} aria-describedby="demo-access-note"><label htmlFor="demo-identity">{role==='citizen'?'Demo citizen identity':'Demo officer / operator identity'}<input id="demo-identity" value={details.identity} readOnly aria-describedby="demo-identity-note"/></label><small id="demo-identity-note">Fictional identity for this walkthrough.</small><label htmlFor="demo-role">Workspace role<input id="demo-role" value={details.label} readOnly/></label><button className="primary full" type="submit">Enter demo workspace<ArrowRight aria-hidden="true"/></button></form><p className="signin-session-note">Changes are shared across roles in this tab until reload.</p></section></main>;
 }
 
 function LogoutDialog({role,onCancel,onConfirm}:{role:WorkspaceRole;onCancel:()=>void;onConfirm:()=>void}){

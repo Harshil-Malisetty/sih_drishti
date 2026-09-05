@@ -58,10 +58,11 @@ Commands reject invalid transitions and unknown references without partial write
 
 ## Citizen report intake (implemented locally)
 
-- `CitizenReportInput`: canonical road-segment ID, category (pothole/waterlogging/obstruction), description and bounded JPEG/PNG/WebP data URL.
+- `CitizenReportInput`: canonical road-segment ID, category (pothole/waterlogging/obstruction/traffic-obstruction), description and **optional** bounded JPEG/PNG/WebP data URL. Empty/omitted images normalize to an empty string. Stored fields are explicitly whitelisted; callers cannot inject linked records, triage state or Police fields.
 - `citizenService.submitReport`: validates and atomically adds a Pending report to the shared city snapshot, returning its receipt.
 - `municipalService.getCitizenReports` / `reviewCitizenReport`: municipal inbox access and Accepted/Dismissed triage with a note. Acceptance creates a linked Detected issue. It does not invent bus observations or immediately publish a verified warning.
-- A linked issue retains `citizenReportId`, zero fleet detections and its citizen evidence. It becomes a public reported condition only after qualification; verified repair removes it from active journey warnings.
+- `incidentsService.getCitizenReports` / `reviewCitizenReport`: the traffic-obstruction category goes to Police only. Acceptance links a Citizen-origin incident with no invented plate, confidence or bus sightings. Explicit officer assessment/assignment permits a generic public warning; `resolveCitizenReport` records officer clearance and removes it. The command rejects wrong-workspace review.
+- A linked issue retains `citizenReportId`, zero fleet detections and its citizen evidence. It becomes a public reported condition only after explicit qualification; Citizen-origin issues cannot use the legacy assign-from-detected shortcut. The public condition uses a category summary, not the reporter's raw description. Verified repair removes it from active journey warnings.
 - The browser image pipeline validates decoded pixels, caps dimensions and re-encodes to strip EXIF. Domain checks bound payload size and accepted data-URL formats. These client-side checks are not production upload security.
 - There is **no HTTP report endpoint, database, cross-device synchronization or real municipal delivery** in this repository. A backend adapter must implement independent authentication, authorization, rate limits, content validation/moderation, durable object storage and retention before public deployment.
 

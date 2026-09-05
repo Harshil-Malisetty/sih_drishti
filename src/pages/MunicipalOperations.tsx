@@ -423,7 +423,7 @@ function Detail({
           </div>
           <SeverityBadge value={x.severity} />
         </div>
-        <div className="road-frame">
+        {(latest?.image || x.image) ? <div className="road-frame">
           <img
             src={latest?.image || x.image}
             alt={`${x.defectType} latest observation`}
@@ -432,7 +432,7 @@ function Detail({
           <em>
             {x.citizenReportId ? `${formatDemoDate(x.lastSeen)} · Citizen photo` : `${x.lastSeen} · ${latest?.busId || x.busIds.at(-1)}`}
           </em>
-        </div>
+        </div> : <p className="operation-meta">No photo attached. Field assessment required.</p>}
         <Surface className="detail-facts">
           <div>
             <span>{x.citizenReportId ? 'Reported at' : 'First observed'}</span>
@@ -449,7 +449,7 @@ function Detail({
           <div>
             <span>{x.citizenReportId ? 'Evidence source' : 'Fleet evidence'}</span>
             <strong>
-              {x.citizenReportId ? `Citizen photo · ${x.citizenReportId}` : `${x.detectionCount} observations · ${x.busIds.length} buses`}
+              {x.citizenReportId ? `Citizen report · ${x.citizenReportId}` : `${x.detectionCount} observations · ${x.busIds.length} buses`}
             </strong>
           </div>
           <div>
@@ -687,7 +687,7 @@ function ScenarioMap({
   const fittedGeometry = useRef('');
   useEffect(() => {
     if (!host.current || map.current) return;
-    map.current = L.map(host.current, { zoomControl: false }).setView(
+    map.current = L.map(host.current, { zoomControl: false, zoomAnimation: false }).setView(
       [13.02, 80.239],
       13,
     );

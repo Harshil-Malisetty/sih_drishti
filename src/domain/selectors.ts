@@ -185,7 +185,7 @@ function publicIssue(state: CityState, issue: MunicipalIssue): PublicCondition {
     .filter(at => byTime(at, state.now) <= 0).sort(byTime);
   return {
     id: issue.id, roadSegmentId: issue.roadSegmentId, title: issue.defectType, location: issue.location,
-    condition: verified && resolution ? resolution.resultingCondition : issue.currentCondition || issue.defectType,
+    condition: verified && resolution ? resolution.resultingCondition : issue.citizenReportId ? `${issue.defectType} reported; use caution.` : issue.currentCondition || issue.defectType,
     severity: verified ? 'Low' : issue.severity, verified, updatedAt: times.at(-1) || observedTime(issue.firstSeen),
     ...(verified && review?.reviewedAt ? { verifiedAt: review.reviewedAt } : {}), evidence,
   };
@@ -194,6 +194,9 @@ function publicIssue(state: CityState, issue: MunicipalIssue): PublicCondition {
 export function selectCitizenContext(state: CityState): CitizenMobilityContext & { conditions: PublicCondition[] } {
   const conditions = Object.values(state.issues).filter(issue => !issue.citizenReportId || issue.workflowStage !== 'Detected').map(issue => publicIssue(state, issue));
   for (const incident of Object.values(state.incidents)) {
+    // Intake acceptance is not officer qualification. Citizen reports become
+    // public only after an officer explicitly assesses and assigns them.
+    if (incident.citizenReportId && !selectAssignment(state, { kind: 'incident', id: incident.id })) continue;
     if (!isActive(incident.status) || !/obstruction/i.test(incident.type) || byTime(incident.observedAt, state.now) > 0) continue;
     if (resolutionFor(state, { kind: 'incident', id: incident.id }).decision === 'Verified') continue;
     conditions.push({

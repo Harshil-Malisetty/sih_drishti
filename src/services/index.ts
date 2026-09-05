@@ -3,12 +3,16 @@ import type { CityCommand } from '../domain/cityStore';
 import type { CitizenReportInput, EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
 import { completionEvidence } from '../data/demo/operations';
 import { selectMunicipalTasks } from '../domain/operations';
+import { reportRecipient } from '../domain/citizenReports';
 import { selectAssignment, selectCitizenAlerts, selectCitizenContext, selectCitizenRoute, selectIssues, selectPlannerRoads, selectPoliceSummary, selectTraffic, selectTrafficAnomalies, selectWatchlist } from '../domain/selectors';
 
 // Promise-shaped boundaries remain replaceable by HTTP implementations. No independent caches.
 const query = <T,>(read: () => T): Promise<T> => Promise.resolve().then(() => structuredClone(read()));
 const command = (action: CityCommand) => Promise.resolve().then(() => cityStore.dispatch(action));
 export const incidentsService = {
+	resolveCitizenReport: (incidentId: string, actor: string, note: string) => command({ type: 'resolveCitizenIncident', incidentId, actor, note }).then(state => structuredClone(state.incidents[incidentId])),
+	getCitizenReports: () => query(() => Object.values(cityStore.getSnapshot().citizenReports).filter(report => reportRecipient(report.category) === 'police')),
+	reviewCitizenReport: (reportId: string, decision: 'Accepted' | 'Dismissed', note: string) => command({ type: 'reviewCitizenReport', reportId, decision, note, reviewerRole: 'police' }).then(state => structuredClone(state.citizenReports[reportId])),
 	getIncidents: () => query(() => Object.values(cityStore.getSnapshot().incidents)),
 	getIncident: (id: string) => query(() => cityStore.getSnapshot().incidents[id]),
 	assign: (id: string, teamId: string, assignee: string) => command({ type: 'assign', event: { kind: 'incident', id }, teamId, assignee }).then(state => selectAssignment(state, { kind: 'incident', id })),
@@ -20,8 +24,8 @@ export const watchlistService = {
 	decide: (matchId: string, decision: 'Verified' | 'Dismissed') => command({ type: 'decideMatch', matchId, decision }).then(state => structuredClone(state.watchlist[matchId])),
 };
 export const municipalService = {
- getCitizenReports: () => query(() => Object.values(cityStore.getSnapshot().citizenReports)),
- reviewCitizenReport: (reportId: string, decision: 'Accepted' | 'Dismissed', note: string) => command({ type: 'reviewCitizenReport', reportId, decision, note }).then(state => structuredClone(state.citizenReports[reportId])),
+ getCitizenReports: () => query(() => Object.values(cityStore.getSnapshot().citizenReports).filter(report => reportRecipient(report.category) === 'municipal')),
+ reviewCitizenReport: (reportId: string, decision: 'Accepted' | 'Dismissed', note: string) => command({ type: 'reviewCitizenReport', reportId, decision, note, reviewerRole: 'municipal' }).then(state => structuredClone(state.citizenReports[reportId])),
 	qualify: (issueId: string, actor: string) => command({ type: 'qualifyIssue', issueId, actor }).then(() => municipalService.getRoadDefect(issueId)),
 	close: (issueId: string, actor: string) => command({ type: 'closeIssue', issueId, actor }).then(() => municipalService.getRoadDefect(issueId)),
 	getTasks: () => query(() => selectMunicipalTasks(cityStore.getSnapshot())),

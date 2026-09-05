@@ -81,19 +81,36 @@ export function expectIntegrity(state: CityState) {
   }
   for (const incident of Object.values(state.incidents)) {
     ref(state.roadSegments, incident.roadSegmentId);
-    ref(state.buses, incident.busId);
+    if (incident.citizenReportId) {
+      ref(state.citizenReports, incident.citizenReportId);
+      expect(state.citizenReports[incident.citizenReportId].incidentId).toBe(incident.id);
+      expect(incident.detectionSource).toBe('Citizen report');
+      expect(incident.busId).toBe('');
+    } else ref(state.buses, incident.busId);
   }
   for (const match of Object.values(state.watchlist)) {
     ref(state.buses, match.busId);
     match.observations?.forEach(item => ref(state.buses, item.busId));
   }
   for (const issue of Object.values(state.issues)) {
+    if (issue.citizenReportId) {
+      ref(state.citizenReports, issue.citizenReportId);
+      expect(state.citizenReports[issue.citizenReportId].issueId).toBe(issue.id);
+    }
     ref(state.roadSegments, issue.roadSegmentId);
     ref(state.departments, issue.departmentId);
     expect(state.departments[issue.departmentId].role).toBe('municipal');
     issue.busIds.forEach(id => ref(state.buses, id));
     issue.observations?.filter(item => item.busId).forEach(item => ref(state.buses, item.busId));
     if (issue.repair?.busId) ref(state.buses, issue.repair.busId);
+  }
+  for (const report of Object.values(state.citizenReports)) {
+    ref(state.roadSegments, report.roadSegmentId);
+    if (report.status !== 'Accepted') {
+      expect(report.issueId).toBeUndefined(); expect(report.incidentId).toBeUndefined();
+    } else if (report.category === 'traffic-obstruction') {
+      ref(state.incidents, report.incidentId!); expect(report.issueId).toBeUndefined();
+    } else { ref(state.issues, report.issueId!); expect(report.incidentId).toBeUndefined(); }
   }
   for (const team of Object.values(state.teams)) ref(state.departments, team.departmentId);
   for (const assignment of Object.values(state.assignments)) {

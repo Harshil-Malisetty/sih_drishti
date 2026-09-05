@@ -2,10 +2,12 @@ import type { AdminReview, CitizenReportInput, CityState, CityTrafficObservation
 import { calculateScenario } from './planning';
 import { selectAssignment } from './selectors';
 import { emergencyEligible, selectEmergency } from './operations';
+import { reportCategories, reportRecipient, type ReportRecipient } from './citizenReports';
 
 export type CityCommand =
   | { type: 'submitCitizenReport'; input: CitizenReportInput }
-  | { type: 'reviewCitizenReport'; reportId: string; decision: 'Accepted' | 'Dismissed'; note: string }
+  | { type: 'resolveCitizenIncident'; incidentId: string; actor: string; note: string }
+  | { type: 'reviewCitizenReport'; reportId: string; decision: 'Accepted' | 'Dismissed'; note: string; reviewerRole?: ReportRecipient }
   | { type: 'qualifyIssue'; issueId: string; actor: string }
   | { type: 'closeIssue'; issueId: string; actor: string }
   | { type: 'closeDispatch'; dispatchId: string; actor: string }
@@ -63,16 +65,19 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
   switch (command.type) {
     case 'submitCitizenReport': {
       const input = command.input;
-      required(next.roadSegments[input.roadSegmentId], 'Choose a supported road location');
-      if (!['pothole', 'waterlogging', 'obstruction'].includes(input.category)) throw new Error('Choose a report category');
+      const segment = required(next.roadSegments[input.roadSegmentId], 'Choose a supported road location');
+      if (!segment.points.length || segment.points.some(point => point.length !== 2 || !point.every(Number.isFinite))) throw new Error('Road location has no valid geometry');
+      if (!Object.hasOwn(reportCategories, input.category)) throw new Error('Choose a report category');
       if (input.description.trim().length < 10 || input.description.length > 1000) throw new Error('Describe the issue in 10–1000 characters');
-      if (input.image.length > 2_800_000 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(input.image)) throw new Error('Attach a JPEG, PNG or WebP photo up to 2 MB');
+      const image = input.image ?? '';
+      if (image && (image.length > 2_800_000 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image))) throw new Error('Use a JPEG, PNG or WebP photo up to 2 MB, or submit without a photo');
       if (Object.values(next.citizenReports).filter(report => report.status === 'Pending').length >= 20) throw new Error('The demo report queue is full. Review pending reports first.');
-      next.citizenReports[id('CIT')] = { ...input, description: input.description.trim(), id: id('CIT'), submittedAt: next.now, status: 'Pending' };
+      next.citizenReports[id('CIT')] = { roadSegmentId: input.roadSegmentId, category: input.category, image, description: input.description.trim(), id: id('CIT'), submittedAt: next.now, status: 'Pending' };
       break;
     }
     case 'reviewCitizenReport': {
       const report = required(next.citizenReports[command.reportId], 'Unknown citizen report');
+      if ((command.reviewerRole ?? 'municipal') !== reportRecipient(report.category)) throw new Error('Review this report in its responsible workspace');
       text(command.note, 'Triage note');
       if (report.status !== 'Pending') throw new Error('This report has already been reviewed');
       if (!['Accepted', 'Dismissed'].includes(command.decision)) throw new Error('Invalid triage decision');
@@ -80,6 +85,19 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
       if (command.decision === 'Accepted') {
         const segment = next.roadSegments[report.roadSegmentId];
         const [latitude, longitude] = segment.points[Math.floor(segment.points.length / 2)];
+        if (report.category === 'traffic-obstruction') {
+          const incidentId = id('INC'); report.incidentId = incidentId;
+          next.incidents[incidentId] = { id: incidentId, citizenReportId: report.id, citizenDescription: report.description,
+            type: 'Reported traffic obstruction', severity: 'Medium', status: 'Open', roadSegmentId: segment.id,
+            location: segment.name, latitude, longitude, observedAt: report.submittedAt, timestamp: report.submittedAt,
+            busId: '', route: '', vehicleType: 'Unknown', registrationNumber: '', registrationConfidence: 0,
+            detectionSource: 'Citizen report', image: report.image,
+            track: { frameCount: 0, currentFrame: 0, stages: [
+              { timestamp: report.submittedAt, label: 'Citizen report received', detail: report.description },
+              { timestamp: next.now, label: 'Accepted for police review', detail: report.reviewNote },
+            ] } };
+          break;
+        }
         const water = report.category === 'waterlogging';
         const title = water ? 'Waterlogging' : report.category === 'pothole' ? 'Pothole' : 'Road obstruction';
         const issueId = id('ISS'); report.issueId = issueId;
@@ -91,6 +109,16 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
           currentCondition: report.description, recommendedAction: 'Assess citizen evidence and qualify for field action',
           history: [{ at: next.now, action: `Citizen report accepted for assessment: ${report.reviewNote}`, actor: 'Municipal triage' }] };
       }
+      break;
+    }
+    case 'resolveCitizenIncident': {
+      const incident = required(next.incidents[command.incidentId], 'Unknown incident');
+      if (!incident.citizenReportId) throw new Error('Use the existing incident response workflow');
+      if (incident.status !== 'Investigating') throw new Error('Assess and assign this report before recording clearance');
+      text(command.actor, 'Reviewing officer'); text(command.note, 'Clearance note');
+      required(selectAssignment(next, { kind: 'incident', id: incident.id }), 'Assign an officer first');
+      incident.status = 'Resolved'; incident.resolvedAt = next.now; incident.resolutionSummary = command.note.trim();
+      incident.track?.stages.push({ timestamp: next.now, label: 'Officer recorded clearance', detail: `${command.actor}: ${command.note.trim()}` });
       break;
     }
     case 'qualifyIssue': {
@@ -118,6 +146,7 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
       if (team.departmentId !== departmentId) throw new Error('Team does not belong to the responsible department');
       if (pendingReview(next, command.event)) throw new Error('Review the pending resolution before reassigning');
       const issue = command.event.kind === 'municipal' ? next.issues[command.event.id] : undefined;
+      if (issue?.citizenReportId && issue.workflowStage === 'Detected') throw new Error('Qualify the citizen report before assignment');
       const incident = command.event.kind === 'incident' ? next.incidents[command.event.id] : undefined;
       const dispatch = command.event.kind === 'anomaly' ? activeDispatch(next, command.event.id) : undefined;
       if (issue && ['Verified','Closed'].includes(issue.workflowStage) || incident?.status === 'Resolved' || incident?.status === 'Closed') throw new Error('Closed events cannot be assigned');

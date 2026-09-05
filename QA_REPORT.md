@@ -1,4 +1,108 @@
-# Drishti product refinement and adversarial QA
+# Drishti final polish and functional-integrity pass
+
+Date: 5 September 2026. This section records the **current pass**. The previous refinement report is retained below as historical evidence, not as newly executed coverage.
+
+## Current result
+
+- `npm run typecheck`: **PASS**.
+- `npm test`: **82 tests passed across 8 files** (11 new service-level regression cases).
+- `npm run build`: **PASS**, no oversized-chunk warning.
+- `git diff --check`: **PASS**.
+- Production-preview browser checks: no console errors or uncaught page errors in the post-fix run. One Leaflet zoom/unmount race was reproduced earlier, fixed and retested.
+- No dependencies added or upgraded. No commit or push performed.
+
+## 1. Files changed in this pass
+
+| Area | Files |
+|---|---|
+| Entry and shared presentation | [src/App.tsx](src/App.tsx), [src/styles-refinement.css](src/styles-refinement.css), [src/components/cards.tsx](src/components/cards.tsx) |
+| Report UI and role integration | [src/components/CitizenReports.tsx](src/components/CitizenReports.tsx), [src/pages/CitizenPages.tsx](src/pages/CitizenPages.tsx), [src/pages/MunicipalOperations.tsx](src/pages/MunicipalOperations.tsx), [src/pages/PolicePages.tsx](src/pages/PolicePages.tsx) |
+| Shared routing, commands and public projections | [src/domain/citizenReports.ts](src/domain/citizenReports.ts) (new), [src/domain/cityStore.ts](src/domain/cityStore.ts), [src/domain/selectors.ts](src/domain/selectors.ts), [src/services/index.ts](src/services/index.ts), [src/types/city.ts](src/types/city.ts), [src/types/index.ts](src/types/index.ts) |
+| Minimal map race fix | [src/components/CitizenMapView.tsx](src/components/CitizenMapView.tsx), [src/components/MunicipalMapView.tsx](src/components/MunicipalMapView.tsx), [src/components/PoliceMapView.tsx](src/components/PoliceMapView.tsx); planner constructor in MunicipalOperations above |
+| Regression tests | [tests/citizen-submission.test.ts](tests/citizen-submission.test.ts) (new), [tests/helpers.ts](tests/helpers.ts) |
+| Documentation | [README.md](README.md), [backend/README.md](backend/README.md), [QA_REPORT.md](QA_REPORT.md) |
+
+## 2. Citizen submission root cause and fix
+
+**Reproduced before editing:** with a valid description and corridor but no photo, native form validity was true while Submit remained disabled. The form required `image` in its button guard; the command also rejected empty/missing images. This contradicted the intended optional-photo workflow. The shared store and Municipal handoff were already present, not the cause of this blocker.
+
+- Photo is optional in the input contract, command and form. Invalid attached formats still fail validation; the user can remove them and submit without a photo.
+- A successful command replaces the form with a distinctly titled receipt. Focus and dialog scroll move to the receipt heading; it includes ID, road, category, recipient and photo state. Done/Escape returns to the journey and restores opener focus.
+- All supported road geometry is available, independent of construction-planning eligibility. No unrelated corridor is silently selected when the current route has no known road segment.
+- Accepted no-photo records have honest text-only evidence states, not broken images or invented photographs.
+- Submission fields are whitelisted. Existing duplicate-submit protection is preserved; browser double-click produced one report.
+
+## 3. Shared propagation and deterministic routing
+
+One immutable `cityStore` remains the source of truth. Role logout/re-entry in the same tab does not reset it. No Citizen-only report list, backend, new cache or persistence layer was added.
+
+| Report category | Inbox | Accepted record and continuation |
+|---|---|---|
+| Pothole | Municipal | Roads / Engineering issue |
+| Waterlogging | Municipal | Stormwater issue |
+| Road debris / damaged infrastructure (`obstruction`) | Municipal | Roads / Engineering issue |
+| Traffic obstruction / unsafe parking (`traffic-obstruction`) | Police | Citizen-origin incident → explicit assessment & investigation assignment → officer clearance |
+
+Both inboxes filter the same report table. Wrong-workspace triage is rejected. Accepted records retain reciprocal `citizenReportId` links; dismissal creates no operational record. Municipal issues require explicit qualification before assignment/publication and continue through the existing departmental repair/review/closure workflow. Police reports never gain fake bus sightings, registration extraction or model confidence. Police intake acceptance alone does not publish a warning: explicit assessment/assignment is required. Clearance removes the active warning. Public conditions use generic category summaries, not reporter text/photos or investigation details.
+
+## 4. Demo entry, landing and visual consistency
+
+- Kept the existing logo, identity, role palettes and role separation.
+- Restored a product-like demo entry with read-only fictional identities: POLICE-204, MUNICIPAL-118, CITIZEN-032; selected role and a single entry action. Explicitly states there is no real authentication.
+- Preserved “One fleet. A city of insights.” and the AI-Powered Mobile Urban Intelligence identity; added “Every bus becomes an intelligent moving sensor for the city.”
+- Clarified Bus cameras → Edge AI → City intelligence → role audiences. Improved mobile spacing and supporting text; restored a deliberate two-column desktop composition instead of inherited/conflicting layout rules.
+- Aligned report receipts, inbox rows and no-photo states. Police stays operational, Municipal workflow-oriented and Citizen map/mobility-first. No gradient, glow, glass treatment or oversized decorative cards were added.
+
+## 5. Motion and map stability
+
+Reviewed the [official Motion for React documentation](https://motion.dev/docs/react), including its recommendation to use CSS for simple self-contained effects. Motion was already installed and remains in the existing Bklit charts. **No new Motion React usage or dependency** was needed.
+
+New effects are CSS only: 180 ms, 4 px entrance on the landing hero, demo-entry panel and report receipt; 140 ms role-card/button colour/border transitions. Reduced-motion preference disables these effects. No looping pipeline, staggered dashboard animations or scale effects were added.
+
+Rapid Police zoom → layer switch exposed Leaflet 1.9's pending zoom-transition callback accessing a removed map (`_leaflet_pos`). The minimal fix sets the public `zoomAnimation: false` option on all four map constructors. No map implementation was rewritten. Zoom, pan, route geometry, marker selection, sheets and saved camera state remain. Rapid zoom/filter/detail/Back and planner/Citizen unmount sequences were retested without runtime errors.
+
+## 6. Automated and browser regression results
+
+All existing seven Vitest suites still pass. New coverage verifies optional images, exact shared receipts, all four category destinations, wrong-role rejection, reciprocal record links, qualification guards, Police clearance/public-warning gating, public-description redaction, detached reads, injected-field stripping, concurrent receipts, non-planning roads, duplicate triage, queue capacity/retry and missing geometry.
+
+Browser: integrated Chromium against compiled production preview, with viewports **375×812, 390×844, 393×852, 1440×1000**. These are not four physical devices.
+
+| Check actually executed in this pass | Coverage / result |
+|---|---|
+| Landing, all three role entries and workspace rendering | All four sizes; pass |
+| Citizen report → receipt → same exact Municipal report → accepted linked issue | All four sizes; pass. Real local JPEG attachment at 390; no-photo at other sizes |
+| Full linked Municipal qualification → assignment → acknowledgement → field action → resolution → admin verification → closure | 375; pass, repeated on final build |
+| Citizen traffic report → Police inbox → acceptance → assignment → officer clearance | 375; pass |
+| Planner 3-day closure → approval → Citizen closed candidate/alternative → work detail | 375; pass, repeated on final build |
+| Citizen route selection, geographic paths, map pan/zoom/fit, public-only visible fields | All four sizes; pass |
+| Current-location → live OSRM geographic routes | 393; emulated GPS fix, real network request; 6.9/7.0 km alternatives returned. Location-denial recovery also passed |
+| Existing collision evidence/timeline → investigation assignment → Back | 1440; pass |
+| Watchlist evidence and selected multi-bus movement trail | All four sizes; pass. Human verification action also passed |
+| Existing fleet traffic anomaly → dispatch → assignment → en route → on scene → follow-up → resolution → verification → closure | 390; pass |
+| Police and Municipal map pan/zoom → record → Back camera retention | All four sizes; marker-position difference within 2 px, usable zoom controls |
+| Post-fix rapid Police zoom/layer switching and immediate record navigation | All four sizes; pass, no repeat of teardown error |
+| Municipal GIS layer changes, planner zoom/Back and Citizen zoom/logout | Pass on final build |
+| Existing Bklit pothole progression/evidence selection and data table | 375; five-row table and selection passed |
+| CDP-dispatched touch swipes over lifecycle chart | 375, 390, 393; page scrolled; `pan-y pinch-zoom` preserved |
+| Keyboard role entry, Back, dialog Escape/opener focus, reduced motion | Pass |
+| Whitespace-only description, rejected SVG attachment/removal, retry and double-click submission | Pass; one report, focused receipt |
+| Document/container overflow, targeted clipped controls/text and broken loaded evidence images | No failures in the audited screens |
+
+Final build: entry JS **212.14 kB / 67.35 kB gzip**; largest lazy chunk **334.99 kB / 108.41 kB gzip**. Existing evidence JPEG unchanged at 408.83 kB.
+
+## 7. Runtime results and limitations
+
+- **Zero captured console errors / uncaught page errors after the map fix.** Earlier captured Leaflet error is described above, not hidden. Aborted tile requests during rapid map teardown are normal cancellations, not a claim of offline support.
+- GPS success/denial used emulated browser callbacks because the integrated browser did not support native permission emulation. The successful online route was not mocked. Real GPS hardware, physical capture sheets, iOS/Android safe areas, Safari/Firefox and screen readers were not tested.
+- Demo identities are presentation only. Role guards and public projections are useful frontend structure, **not a production authorization boundary**; synthetic Police fixtures still exist in the client bundle. Existing security architecture notes are preserved.
+- Reports/operations exist only in the loaded tab and reset on reload. No external Municipal/Police delivery, synchronization, real emergency dispatch or durable receipt lookup exists.
+- Pending reports are capped at 20. This is not a production retention/storage policy; long demo sessions with many accepted photos still consume browser memory.
+- Routing still supports the existing named Chennai landmarks/current location, sampled corridor coverage and external OSRM/OpenStreetMap services. No address geocoder, guaranteed street-level closure avoidance, live ETA, offline tiles or turn-by-turn guidance was added.
+- Browser checks were executed interactively with Playwright; no new Playwright dependency or CI browser runner was added. No comprehensive accessibility certification is claimed.
+
+---
+
+# Previous refinement report (historical)
 
 Date: 5 September 2026. Scope: the existing SIH demo, not a production deployment.
 

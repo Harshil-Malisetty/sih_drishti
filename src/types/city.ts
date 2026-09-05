@@ -16,7 +16,7 @@ export interface CityTrafficObservation extends TrafficObservation {
   baselineSource: string;
 }
 export interface CityBus extends Bus { roadSegmentId: string; observedAt: string }
-export interface CityIncident extends Incident { roadSegmentId: string; observedAt: string; resolvedAt?: string; emergencyDispatchId?: string; resolutionSummary?: string }
+export interface CityIncident extends Incident { roadSegmentId: string; observedAt: string; resolvedAt?: string; emergencyDispatchId?: string; resolutionSummary?: string; citizenReportId?: string; citizenDescription?: string }
 export type IssueKind = 'pothole' | 'waterlogging' | 'obstruction' | 'zebra-crossing' | 'divider' | 'signboard' | 'guardrail' | 'school-crossing';
 export interface Department { id: string; name: string; role: 'municipal' | 'police' | 'response' }
 export interface Team { id: string; departmentId: string; name: string }
@@ -101,10 +101,10 @@ export interface MunicipalTask {
 }
 export interface RouteLeg { roadSegmentId: string; fraction: number }
 export interface CitizenReportInput {
-  roadSegmentId: string; category: 'pothole' | 'waterlogging' | 'obstruction'; description: string; image: string;
+  roadSegmentId: string; category: 'pothole' | 'waterlogging' | 'obstruction' | 'traffic-obstruction'; description: string; image?: string;
 }
 export interface CitizenReport extends CitizenReportInput {
-  id: string; submittedAt: string; status: 'Pending' | 'Accepted' | 'Dismissed'; reviewNote?: string; issueId?: string;
+  id: string; image: string; submittedAt: string; status: 'Pending' | 'Accepted' | 'Dismissed'; reviewNote?: string; issueId?: string; incidentId?: string;
 }
 export interface DemoJourney {
   id: string; origin: string; destination: string;

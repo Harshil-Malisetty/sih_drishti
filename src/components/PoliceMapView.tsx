@@ -36,7 +36,8 @@ export function PoliceMapView({markers,selected,onSelect,onTrailSelect,trail=[],
 
  useEffect(()=>{
   if(!container.current||map.current)return;
-  map.current=L.map(container.current,{zoomControl:false,attributionControl:true}).setView(initialView?.center||[13.035,80.235],initialView?.zoom||12);
+  // Leaflet 1.9's zoom-transition timer can fire after a layer switch removes the map.
+  map.current=L.map(container.current,{zoomControl:false,attributionControl:true,zoomAnimation:false}).setView(initialView?.center||[13.035,80.235],initialView?.zoom||12);
   map.current.on('moveend',()=>{if(map.current){const center=map.current.getCenter();cameraCallback.current?.({center:[center.lat,center.lng],zoom:map.current.getZoom()})}});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).on('tileerror',()=>setTileError(true)).addTo(map.current);
   L.control.zoom({position:'topright'}).addTo(map.current);

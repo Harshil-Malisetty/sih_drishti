@@ -4,7 +4,7 @@ export type Status = 'Open' | 'Investigating' | 'Pending Verification' | 'Resolv
 export interface GeoPoint { latitude:number; longitude:number; }
 export interface PipelineEvent { timestamp:string; label:string; detail:string; }
 export interface VehicleTrack { frameCount:number; currentFrame:number; stages:PipelineEvent[]; }
-export interface Incident extends GeoPoint { id:string; type:string; severity:Severity; timestamp:string; location:string; busId:string; route:string; vehicleType:string; registrationNumber:string; registrationConfidence:number; status:Status; image:string; detectionSource:'Onboard Edge'; track?:VehicleTrack; }
+export interface Incident extends GeoPoint { id:string; type:string; severity:Severity; timestamp:string; location:string; busId:string; route:string; vehicleType:string; registrationNumber:string; registrationConfidence:number; status:Status; image:string; detectionSource:'Onboard Edge'|'Citizen report'; track?:VehicleTrack; }
 export interface FleetObservation extends GeoPoint { id:string; timestamp:string; location:string; busId:string; route:string; confidence?:number; }
 export interface WatchlistMatch { id:string; subjectType:'Missing Person'|'Flagged Vehicle'; subjectName:string; confidence:number; timestamp:string; location:string; busId:string; route:string; status:Status; image:string; referenceImage:string; observations?:FleetObservation[]; }
 export interface DefectObservation { day:number; date:string; observedAt?:string; label:string; detail:string; relativeSize:number; busId:string; image?:string; source?:string; }

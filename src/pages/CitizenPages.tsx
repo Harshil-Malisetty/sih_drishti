@@ -114,6 +114,6 @@ export default function CitizenPages({ page, navigate, exit }: { page: string; n
       </section>
     </main>
     {project && <Modal title="Municipal road work" close={() => setProject(undefined)}><div className="project-public-detail"><span className="eyebrow">ROAD WORK · {project.status.toUpperCase()}</span><h3>{project.roadName}</h3><p>{project.title}</p><p>Active until {formatDemoDate(project.endsAt)}</p><p>Expect delays. This notice comes from approved municipal planning context.</p><button className="primary full" onClick={() => { setProject(undefined); if (recommended) setSelected(recommended.id); navigate('routes'); }}>{recommended ? 'Find better route' : 'Review route availability'}</button></div></Modal>}
-    {reportOpen && <CitizenReportForm close={() => setReportOpen(false)} initialRoad={selected?.segmentIds.find(id => state.roadSegments[id]?.planningEnabled)}/>}
+    {reportOpen && <CitizenReportForm close={() => setReportOpen(false)} initialRoad={selected?.segmentIds.find(id => state.roadSegments[id])}/>}
   </>;
 }
