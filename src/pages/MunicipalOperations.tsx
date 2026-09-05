@@ -9,7 +9,9 @@ import {
   MapPin,
   X,
 } from "lucide-react";
-import { defects, plannerRoadSegments } from "../data/demo";
+import { useCityData } from "../services/useCityData";
+import { municipalService } from "../services";
+import { selectPlannerSimulation } from "../domain/planning";
 import type { PlannerRoadSegment, RoadDefect, Severity } from "../types";
 import { DefectCard } from "../components/cards";
 import {
@@ -36,131 +38,8 @@ import { ChartTooltip } from "../components/charts/tooltip";
 
 type View =
   | { kind: "detail" | "lifecycle"; id: string }
-  | { kind: "result"; road: string; duration: string };
-type ImpactSeverity = Extract<Severity, "High" | "Medium" | "Low"> | "Severe";
-type AffectedRoad = {
-  segment: PlannerRoadSegment;
-  additionalVehicles: number;
-  saturation: number;
-  delay: number;
-  severity: ImpactSeverity;
-};
-type TimelinePoint = { label: string; day: number; delay: number };
-type PlannerSimulation = {
-  road: PlannerRoadSegment;
-  duration: string;
-  days: number;
-  scenarioLabel: string;
-  delay: number;
-  simulatedMinutes: number;
-  affected: AffectedRoad[];
-  busRoutes: string[];
-  timeline: TimelinePoint[];
-  confidence: "Observed" | "Limited";
-};
-const durationScenarios = {
-  "2 weeks": { multiplier: 0.75, days: 14, label: "Short works window" },
-  "8 weeks": { multiplier: 1, days: 56, label: "Staged construction" },
-  "4 months": { multiplier: 1.35, days: 120, label: "Extended closure" },
-} as const;
-const impactSeverity = (saturation: number): ImpactSeverity =>
-  saturation >= 1.08
-    ? "Severe"
-    : saturation >= 0.9
-      ? "High"
-      : saturation >= 0.76
-        ? "Medium"
-        : "Low";
-function simulateClosure(roadId: string, duration: string): PlannerSimulation {
-  const road =
-    plannerRoadSegments.find((segment) => segment.id === roadId) ||
-    plannerRoadSegments[0];
-  const scenario =
-    durationScenarios[duration as keyof typeof durationScenarios] ||
-    durationScenarios["8 weeks"];
-  const connected = road.connectsTo
-    .map((id) => plannerRoadSegments.find((segment) => segment.id === id))
-    .filter((segment): segment is PlannerRoadSegment => Boolean(segment));
-  const spareCapacity = connected.map((segment) =>
-    Math.max(segment.capacity - segment.hourlyVehicles, 20),
-  );
-  const totalSpare = spareCapacity.reduce((total, value) => total + value, 0);
-  const displacedVehicles = Math.round(
-    road.hourlyVehicles * (0.58 + scenario.multiplier * 0.12),
-  );
-  const affected = connected
-    .map((segment, index) => {
-      const additionalVehicles = Math.round(
-        displacedVehicles * (spareCapacity[index] / totalSpare),
-      );
-      const saturation =
-        (segment.hourlyVehicles + additionalVehicles) / segment.capacity;
-      const delay = Math.max(
-        2,
-        Math.round(
-          segment.baselineMinutes *
-            Math.max(0.1, saturation - 0.55) *
-            scenario.multiplier *
-            0.48,
-        ),
-      );
-      return {
-        segment,
-        additionalVehicles,
-        saturation,
-        delay,
-        severity: impactSeverity(saturation),
-      };
-    })
-    .sort((a, b) => b.saturation - a.saturation);
-  const networkPressure =
-    affected.reduce((total, item) => total + item.saturation, 0) /
-    Math.max(affected.length, 1);
-  const delay = Math.max(
-    3,
-    Math.round(
-      road.baselineMinutes *
-        (0.18 + networkPressure * 0.2) *
-        scenario.multiplier,
-    ),
-  );
-  const timeline = [
-    { label: "Baseline", day: 0, delay: 0 },
-    { label: "Initial disruption", day: 1, delay: Math.round(delay * 0.62) },
-    {
-      label: "Peak impact",
-      day: Math.max(3, Math.round(scenario.days * 0.16)),
-      delay,
-    },
-    {
-      label: "Adaptation",
-      day: Math.round(scenario.days * 0.58),
-      delay: Math.max(2, Math.round(delay * 0.68)),
-    },
-    {
-      label: "Closure end",
-      day: scenario.days,
-      delay: Math.max(1, Math.round(delay * 0.22)),
-    },
-  ];
-  return {
-    road,
-    duration,
-    days: scenario.days,
-    scenarioLabel: scenario.label,
-    delay,
-    simulatedMinutes: road.baselineMinutes + delay,
-    affected,
-    busRoutes: [
-      ...new Set([
-        ...road.busRoutes,
-        ...affected.flatMap((item) => item.segment.busRoutes),
-      ]),
-    ],
-    timeline,
-    confidence: road.observedPasses >= 700 ? "Observed" : "Limited",
-  };
-}
+  | { kind: "result"; scenarioId: string };
+type PlannerSimulation = ReturnType<typeof selectPlannerSimulation>;
 export default function MunicipalOperations({
   page,
   navigate,
@@ -170,7 +49,9 @@ export default function MunicipalOperations({
   navigate: (x: string) => void;
   exit: () => void;
 }) {
+  const { defects, plannerRoadSegments } = useCityData();
   const [stack, setStack] = useState<View[]>([]);
+  const [planningError, setPlanningError] = useState("");
   const [issueFilter, setIssueFilter] = useState("All");
   const [mapFilter, setMapFilter] = useState<MunicipalLayer>("Road defects");
   const [mapSelected, setMapSelected] = useState(
@@ -216,8 +97,7 @@ export default function MunicipalOperations({
   if (active?.kind === "result")
     return (
       <Result
-        roadId={active.road}
-        duration={active.duration}
+        scenarioId={active.scenarioId}
         back={back}
         home={home}
       />
@@ -265,15 +145,15 @@ export default function MunicipalOperations({
             duration={planningDuration}
             onRoad={setPlanningRoad}
             onDuration={setPlanningDuration}
-            run={() =>
-              open({
-                kind: "result",
-                road: planningRoad,
-                duration: planningDuration,
-              })
-            }
+            run={() => {
+              setPlanningError("");
+              void municipalService.runConstructionSimulation({ roadSegmentId: planningRoad, duration: planningDuration })
+                .then(scenario => open({ kind: "result", scenarioId: scenario.id }))
+                .catch(error => setPlanningError(error instanceof Error ? error.message : "Unable to run simulation"));
+            }}
           />
         )}
+        {planningError && <p role="alert">{planningError}</p>}
       </main>
     </>
   );
@@ -287,7 +167,8 @@ function Overview({
   showIssues: (filter: string) => void;
   open: (x: RoadDefect) => void;
 }) {
-  const openIssues = defects.filter((item) => item.status !== "Verified");
+  const { defects, plannerRoadSegments } = useCityData();
+  const openIssues = defects.filter((item) => item.workflowStage !== "Closed");
   const criticalIssues = defects.filter((item) => item.severity === "Critical");
   const infrastructureIssues = defects.filter(
     (item) => item.category === "Infrastructure",
@@ -404,7 +285,7 @@ function Overview({
         action="View all"
         onAction={() => showIssues("All")}
       />
-      <DefectCard item={priorities[0]} onClick={() => open(priorities[0])} />
+      {priorities[0] && <DefectCard item={priorities[0]} onClick={() => open(priorities[0])} />}
       <nav className="municipal-actions" aria-label="Municipal workflows">
         <button onClick={() => showIssues("All")}>
           <span>ISSUE REGISTER</span>
@@ -434,6 +315,7 @@ function IssueList({
   onFilter: (value: string) => void;
   open: (x: RoadDefect) => void;
 }) {
+  const { defects } = useCityData();
   const visible = defects.filter(
     (x) => filter === "All" || x.category === filter,
   );
@@ -467,6 +349,7 @@ function Detail({
   home: () => void;
   lifecycle: () => void;
 }) {
+  const { defects } = useCityData();
   const x = defects.find((d) => d.id === id);
   if (!x)
     return (
@@ -588,6 +471,7 @@ function Lifecycle({
   back: () => void;
   home: () => void;
 }) {
+  const { defects } = useCityData();
   const x = defects.find((d) => d.id === id);
   if (!x) return null;
   return (
@@ -638,6 +522,7 @@ function MunicipalMap({
   onViewChange: (camera: MunicipalMapCamera) => void;
   open: (x: RoadDefect) => void;
 }) {
+  const { defects } = useCityData();
   const visible = defects.filter((x) => inMunicipalLayer(x, filter));
   const item = visible.find((x) => x.id === selected);
   const markers: MunicipalGeoMarker[] = visible.map((x) => ({
@@ -709,6 +594,7 @@ function Planning({
   onDuration: (value: string) => void;
   run: () => void;
 }) {
+  const { plannerRoadSegments } = useCityData();
   const road =
     plannerRoadSegments.find((segment) => segment.id === selected) ||
     plannerRoadSegments[0];
@@ -759,6 +645,7 @@ function ScenarioMap({
   onSelect?: (id: string) => void;
   simulation?: PlannerSimulation;
 }) {
+  const { plannerRoadSegments } = useCityData();
   const host = useRef<HTMLDivElement>(null),
     map = useRef<L.Map | null>(null),
     layer = useRef<L.LayerGroup | null>(null);
@@ -894,18 +781,20 @@ function ImpactChart({ simulation }: { simulation: PlannerSimulation }) {
   );
 }
 function Result({
-  roadId,
-  duration,
+  scenarioId,
   back,
   home,
 }: {
-  roadId: string;
-  duration: string;
+  scenarioId: string;
   back: () => void;
   home: () => void;
 }) {
-  const simulation = simulateClosure(roadId, duration);
+  const { state } = useCityData();
   const [showNotice, setShowNotice] = useState(true);
+  const scenario = state.scenarios[scenarioId];
+  if (!scenario) return <><AppHeader title="Scenario unavailable" onBack={back} onHome={home}/><main className="page">Run the simulation again after resetting the demo.</main></>;
+  const simulation = selectPlannerSimulation(scenario);
+  const duration = scenario.duration;
   return (
     <>
       <AppHeader

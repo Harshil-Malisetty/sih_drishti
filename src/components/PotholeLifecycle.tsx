@@ -5,14 +5,15 @@ import { Grid } from './charts/grid';
 import { Line, LineChart } from './charts/line-chart';
 import { ChartTooltip } from './charts/tooltip';
 import { XAxis } from './charts/x-axis';
+import { demoDate } from '../domain/time';
 
 export function ObservationProgression({defect}:{defect:RoadDefect}){
  const observations=defect.observations||[];
  const [selectedIndex,setSelectedIndex]=useState(Math.max(observations.length-1,0));
  if(observations.length===0)return null;
- const selected=observations[selectedIndex];
+ const selected=observations[Math.min(selectedIndex, observations.length-1)];
  const chartData=observations.map(observation=>({
-  date:new Date(Date.UTC(2026,8,2)+(observation.day-1)*86_400_000),
+  date:new Date(observation.observedAt || demoDate(observation.date)),
   severity:observation.relativeSize,
   label:observation.label,
   day:observation.day,
