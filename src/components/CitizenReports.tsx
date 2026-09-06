@@ -6,6 +6,8 @@ import { formatDemoDate } from '../domain/time';
 import type { CitizenReport, CitizenReportInput } from '../types/city';
 import { useOperation } from './operations';
 import { reportCategories, reportRecipient, type ReportRecipient } from '../domain/citizenReports';
+import { EvidenceImage } from './EvidenceMedia';
+import { EventThumbnail } from './EventThumbnail';
 
 export function Modal({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -67,7 +69,7 @@ export function CitizenReportForm({ close, initialRoad }: { close: () => void; i
     <small id="report-description-help">10–1000 characters. Include a nearby landmark.</small>
     <label className="photo-input"><span><Camera size={18}/> Photo (optional)</span><input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={event => void readPhoto(event.target.files?.[0])} disabled={busy}/></label>
     {reading && <p role="status">Preparing photo…</p>}{photoError && <p role="alert">{photoError}</p>}
-    {image && <img className="report-photo" src={image} alt="Your road issue photo preview"/>}
+    {image && <EvidenceImage className="report-photo" src={image} alt="Your road issue photo preview"/>}
     {(image || photoError || reading) && <button type="button" className="secondary" disabled={busy} onClick={() => { void readPhoto(); if (photoInput.current) photoInput.current.value = ''; }}>Remove photo</button>}
     <p className="operation-meta">Photo metadata is removed. Demo only: no account, upload server or emergency response.</p>
     {error && <p role="alert">{error}</p>}
@@ -80,6 +82,7 @@ function ReportReceipt({ report, roadName, close }: { report: CitizenReport; roa
   useEffect(() => { heading.current?.focus(); heading.current?.closest('dialog')?.scrollTo(0, 0); }, []);
   return <section className="report-receipt">
     <h3 ref={heading} tabIndex={-1}>Report received · {report.id}</h3>
+    <p className="operation-meta">Submitted <time dateTime={report.submittedAt}>{formatDemoDate(report.submittedAt)}</time></p>
     <p>Saved to the shared demo inbox. Awaiting {reportRecipient(report.category)} assessment; not yet a verified road warning.</p>
     <dl><div><dt>Issue</dt><dd>{reportCategories[report.category].label}</dd></div><div><dt>Road</dt><dd>{roadName}</dd></div><div><dt>Sent to</dt><dd>{reportCategories[report.category].destination}</dd></div><div><dt>Photo</dt><dd>{report.image ? 'Attached' : 'Not attached'}</dd></div></dl>
     <p className="operation-meta">Switch workspaces using Log out to review this exact report. Reloading clears demo data; no external delivery occurs.</p>
@@ -103,11 +106,12 @@ export function CitizenReportInbox({ recipient, openRecord }: { recipient: Repor
   if (!reports.length) return null;
   return <section className="citizen-intake" aria-label="Citizen report inbox">
     <h2>Citizen reports <small>{reports.filter(report => report.status === 'Pending').length} awaiting assessment</small></h2>
-    <details open><summary>Review citizen reports ({reports.length})</summary>{reports.map(report => <button className="report-inbox-row" key={report.id} onClick={() => { setSelected(report.id); setNote(''); }}>
-      <span><strong>{reportCategories[report.category].label}</strong><small>{state.roadSegments[report.roadSegmentId].name} · {report.id}</small></span><span>{report.status === 'Pending' ? 'Requires assessment' : report.status}</span>
+    <details open><summary>Review citizen reports ({reports.length})</summary>{reports.map(report => <button className="report-inbox-row event-scene-row" key={report.id} onClick={() => { setSelected(report.id); setNote(''); }}>
+      <EventThumbnail category={report.category === 'traffic-obstruction' ? 'traffic' : report.category}/>
+      <span className="event-copy"><strong>{reportCategories[report.category].label}</strong><small>{state.roadSegments[report.roadSegmentId].name} · {report.id}</small><small>Submitted <time dateTime={report.submittedAt}>{formatDemoDate(report.submittedAt)}</time></small></span><span>{report.status === 'Pending' ? 'Requires assessment' : report.status}</span>
     </button>)}</details>
     {selected && <Modal title={`Citizen report · ${selected.id}`} close={() => setSelected(undefined)}>
-      {selected.image ? <img className="report-photo" src={selected.image} alt="Citizen-submitted road evidence"/> : <p className="operation-meta">No photo attached. Assess the report description and corridor on site.</p>}
+      {selected.image ? <EvidenceImage className="report-photo" src={selected.image} alt="Citizen-submitted road evidence"/> : <p className="operation-meta">No photo attached. Assess the report description and corridor on site.</p>}
       <p><strong>{state.roadSegments[selected.roadSegmentId].name}</strong></p><p>{selected.description}</p>
       <p className="operation-meta">Citizen-submitted · {formatDemoDate(selected.submittedAt)} · {selected.status}<br/>Corridor location selected by reporter; requires field assessment.</p>
       {selected.status === 'Pending' ? <div className="operation-form"><label>Triage note<textarea value={note} onChange={event => setNote(event.target.value)} maxLength={1000} disabled={busy}/></label>

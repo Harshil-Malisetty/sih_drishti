@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, BusFront, CheckCircle2, LocateFixed, ScanLine, ShieldCheck, Siren } from 'lucide-react';
+import { ArrowRight, BusFront, CheckCircle2, LocateFixed, ShieldCheck, Siren } from 'lucide-react';
 import { IncidentCard, WatchlistCard } from '../components/cards';
 import { BottomSheet } from '../components/MapView';
 import { PoliceMapView, type PoliceGeoMarker, type PoliceMapCamera } from '../components/PoliceMapView';
@@ -10,11 +10,13 @@ import { useOperation } from '../components/operations';
 import { notifyAction } from '../components/ActionFeedback';
 import { AppHeader, ConfidenceIndicator, FilterBar, MetricCard, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
 import { selectTrafficAnomalies } from '../domain/selectors';
-import { formatDemoDate, formatDemoTime } from '../domain/time';
+import { demoDate, formatDemoDate, formatDemoTime } from '../domain/time';
 import { incidentsService, watchlistService } from '../services';
 import { useCityData } from '../services/useCityData';
 import type { FleetObservation, Status, WatchlistMatch } from '../types';
 import type { CityIncident } from '../types/city';
+import { EvidenceCredit, EvidenceImage } from '../components/EvidenceMedia';
+import { EventThumbnail, eventPhaseLabel, type EventCategory } from '../components/EventThumbnail';
 
 type WorkflowView={kind:'incident';id:string}|{kind:'evidence';id:string}|{kind:'assignment';id:string}|{kind:'match';id:string}|{kind:'map';id:string}|{kind:'traffic';id:string};
 type Assignment=ReturnType<typeof useCityData>['assignments'][string];
@@ -22,16 +24,16 @@ type PoliceMapRecord={id:string;type:'bus'|'incident'|'watchlist';group:'Fleet'|
 const isActive=(status:Status)=>!['Resolved','Closed','Verified','Dismissed'].includes(status);
 const hasRegistration=(incident:CityIncident)=>incident.registrationConfidence>0&&Boolean(incident.registrationNumber.trim())&&incident.registrationNumber!=='Not available';
 const incidentCard=(incident:CityIncident)=>({...incident,timestamp:formatDemoDate(incident.observedAt)});
-// The card expects a date/time separator; latest watchlist observations may contain only a time.
-const matchCard=(match:WatchlistMatch)=>({...match,timestamp:/^\d{4}-\d{2}-\d{2}T/.test(match.timestamp)?formatDemoDate(match.timestamp):match.timestamp.includes('·')?match.timestamp:`Observed · ${match.timestamp}`});
+// Normalize legacy and ISO timestamps only at the presentation boundary.
+const matchCard=(match:WatchlistMatch)=>({...match,timestamp:formatDemoDate(demoDate(match.timestamp))});
 
 function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)=>void;selected:string;onSelect:(id:string)=>void;cameras:Partial<Record<PoliceMapRecord['group'],PoliceMapCamera>>}){
  const {state,buses,incidents,watchlist}=useCityData();
  const [filter,setFilter]=useState<PoliceMapRecord['group']>(()=>buses.some(item=>item.id===selected)?'Fleet':incidents.some(item=>item.id===selected)?'Incidents':'Watchlist');
  const records=useMemo<PoliceMapRecord[]>(()=>{
-  const fleet=buses.slice(0,6).map(bus=>{
+  const fleet=buses.filter(bus=>bus.status==='Sensing').map(bus=>{
    const location=state.roadSegments[bus.roadSegmentId]?.name||'Location unavailable';
-   return {id:bus.id,type:'bus' as const,group:'Fleet' as const,latitude:bus.latitude,longitude:bus.longitude,label:`${bus.id} · Route ${bus.route} · ${location}`,eyebrow:'FLEET VEHICLE · 6-BUS SAMPLE',title:`BUS ${bus.id}`,location};
+   return {id:bus.id,type:'bus' as const,group:'Fleet' as const,latitude:bus.latitude,longitude:bus.longitude,label:`${bus.id} · Route ${bus.route} · ${location}`,eyebrow:'REPORTING FLEET VEHICLE',title:`BUS ${bus.id}`,location};
   });
   const events=incidents.filter(item=>isActive(item.status)&&Date.parse(item.observedAt)<=Date.parse(state.now)).map(item=>({
    id:item.id,type:'incident' as const,group:'Incidents' as const,latitude:item.latitude,longitude:item.longitude,label:`${item.type} · ${item.location}`,eyebrow:`${item.severity.toUpperCase()} PRIORITY`,title:item.type,location:item.location,
@@ -45,7 +47,7 @@ function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)
  const visible=records.filter(item=>item.group===filter);
  const selectedObservation=filter==='Watchlist'?watchlist.filter(item=>item.status!=='Dismissed').flatMap(item=>(item.observations||[]).map(observation=>({observation,parent:item}))).find(item=>item.observation.id===selected):undefined;
  const active=visible.find(item=>item.id===(selectedObservation?.parent.id||selected));
- const trail=active?.type==='watchlist'?watchlist.find(item=>item.id===active.id)?.observations?.map(item=>({id:item.id,latitude:item.latitude,longitude:item.longitude,label:`${item.busId} · ${item.timestamp}`})):[];
+ const trail=active?.type==='watchlist'?watchlist.find(item=>item.id===active.id)?.observations?.map(item=>({id:item.id,latitude:item.latitude,longitude:item.longitude,label:`${item.busId} · ${formatDemoDate(demoDate(item.timestamp))}`})):[];
  const actionRecordId=selectedObservation?.parent.id||active?.id;
  const changeFilter=(value:string)=>{const next=value as PoliceMapRecord['group'];setFilter(next);const first=records.find(item=>item.group===next);if(first)onSelect(first.id)};
  return <div className="map-page police-real-map">
@@ -61,7 +63,7 @@ function PoliceObservationDetails({matchId,observation}:{matchId:string;observat
  const {watchlist}=useCityData();
  const match=watchlist.find(item=>item.id===matchId);
  if(!match)return null;
- return <div className="map-detail-grid"><span>Timestamp<strong>{observation.timestamp}</strong></span><span>Bus ID<strong>{observation.busId}</strong></span><span>Location<strong>{observation.location}</strong></span><span>Target<strong>{match.subjectName}</strong></span><span>Confidence<strong>{observation.confidence===undefined?'Not available':`${observation.confidence}%`}</strong></span><span>Route<strong>{observation.route}</strong></span></div>;
+ return <div className="map-detail-grid"><span>Timestamp<strong>{formatDemoDate(demoDate(observation.timestamp))}</strong></span><span>Bus ID<strong>{observation.busId}</strong></span><span>Location<strong>{observation.location}</strong></span><span>Target<strong>{match.subjectName}</strong></span><span>Confidence<strong>{observation.confidence===undefined?'Not available':`${observation.confidence}%`}</strong></span><span>Route<strong>{observation.route}</strong></span></div>;
 }
 
 export default function PolicePages({page,navigate,exit}:{page:string;navigate:(p:string)=>void;exit:()=>void}){
@@ -81,30 +83,54 @@ export default function PolicePages({page,navigate,exit}:{page:string;navigate:(
  if(active?.kind==='traffic')return <PoliceTrafficControl id={active.id} onBack={back}/>;
  if(active?.kind==='map')return <div className="police-workflow"><AppHeader title="Police map" subtitle={active.id} onBack={back}/><PoliceOperationalMap cameras={mapCameras.current} selected={mapSelection} onSelect={setMapSelection} open={openMapRecord}/></div>;
  return <><AppHeader title="Police Command & Control" onExit={exit}/><main>
-  {page==='overview'&&<PoliceOverview go={next=>{if(next==='map')setMapSelection('MTC-2147');navigate(next)}} open={id=>open({kind:'incident',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
+  {page==='overview'&&<PoliceOverview go={next=>{if(next==='map')setMapSelection('MTC-2147');navigate(next)}} open={id=>open({kind:'incident',id})} openMatch={id=>open({kind:'match',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
   {page==='incidents'&&<IncidentList open={id=>open({kind:'incident',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
   {page==='watchlist'&&<Watchlist open={id=>open({kind:'match',id})}/>}
   {page==='map'&&<PoliceOperationalMap cameras={mapCameras.current} selected={mapSelection} onSelect={setMapSelection} open={openMapRecord}/>}
  </main></>;
 }
 
-function PoliceOverview({go,open,openTraffic}:{go:(x:string)=>void;open:(x:string)=>void;openTraffic:(id:string)=>void}){
+function PoliceOverview({go,open,openMatch,openTraffic}:{go:(x:string)=>void;open:(x:string)=>void;openMatch:(id:string)=>void;openTraffic:(id:string)=>void}){
  const {state,incidents,watchlist,policeSummary}=useCityData();
  const priorityIncident=incidents.find(item=>isActive(item.status)&&Date.parse(item.observedAt)<=Date.parse(state.now));
  const priorityMatch=watchlist.find(item=>isActive(item.status));
  return <div className="page">
   <PageIntro eyebrow="POLICE COMMAND · DEMO DATA" title="Operational overview" text={`Updated ${formatDemoTime(state.now)}`}/>
   <div className="metric-grid compact"><MetricCard label="Active incidents" value={policeSummary.activeIncidents} tone="warn"/><MetricCard label="Possible matches" value={policeSummary.possibleMatches} tone="critical"/><MetricCard label="Vehicle observations" value={policeSummary.vehiclesObserved} meta="Latest corridor windows"/><MetricCard label="Alerts today" value={policeSummary.alertsToday}/></div>
-  <button className="sensor-strip fleet-link" onClick={()=>go('map')}><BusFront/><div><strong>{policeSummary.reportingBuses} buses reporting</strong><span>View current fleet locations · 6-bus sample</span></div><ArrowRight/></button>
+  <button className="sensor-strip fleet-link" onClick={()=>go('map')}><BusFront/><div><strong>{policeSummary.reportingBuses} buses reporting</strong><span>View all reporting bus locations</span></div><ArrowRight/></button>
+  <SectionHeader title="Fleet-connected match" action="Watchlist" onAction={()=>go('watchlist')}/>
+  {priorityMatch?<><p className="evidence-context">{new Set(priorityMatch.observations?.map(item=>item.busId)).size} buses → connected sightings → officer verification</p><WatchlistCard item={matchCard(priorityMatch)} onClick={()=>openMatch(priorityMatch.id)}/></>:<p>No matches awaiting review.</p>}
     <TrafficControlEntries open={openTraffic}/>
   <CitizenReportInbox recipient="police" openRecord={open}/>
   <SectionHeader title="Priority alerts" action="All incidents" onAction={()=>go('incidents')}/>
-  {priorityIncident?<><IncidentCard item={incidentCard(priorityIncident)} onClick={()=>open(priorityIncident.id)}/><button className="primary full" onClick={()=>open(priorityIncident.id)}>Review incident <ArrowRight/></button></>:<p>No active incidents.</p>}
+  {priorityIncident?<IncidentCard item={incidentCard(priorityIncident)} onClick={()=>open(priorityIncident.id)}/>:<p>No active incidents.</p>}
   <SectionHeader title="Recent activity"/>
-  <div className="activity-list">{policeSummary.activity.slice(0,4).map(item=><div key={item.id}><time>{item.time}</time><i/><p><strong>{item.title}</strong><span>{item.detail}</span></p></div>)}</div>
-  <SectionHeader title="Possible match" action="Watchlist" onAction={()=>go('watchlist')}/>
-  {priorityMatch?<WatchlistCard item={matchCard(priorityMatch)} onClick={()=>go('watchlist')}/>:<p>No matches awaiting review.</p>}
+  <RecentPoliceActivity/>
  </div>;
+}
+
+function RecentPoliceActivity(){
+ const {state,policeSummary}=useCityData();
+ // Join stable activity IDs back to structured records, never infer a kind from a title.
+ const categories=new Map<string,EventCategory>();
+ const trafficDetails=new Map<string,string>();
+ for(const incident of Object.values(state.incidents))categories.set(`incident-${incident.id}`,'incident');
+ for(const match of Object.values(state.watchlist)){
+  const category=match.subjectType==='Missing Person'?'person':'vehicle';
+  categories.set(`match-${match.id}`,category);
+  for(const observation of match.observations||[])categories.set(`match-${match.id}-${observation.id}`,category);
+ }
+ for(const anomaly of Object.values(state.anomalies)){
+  categories.set(`anomaly-${anomaly.id}`,'traffic');
+  trafficDetails.set(`anomaly-${anomaly.id}`,`${anomaly.id} · ${state.roadSegments[anomaly.roadSegmentId]?.name||'Location unavailable'} · ${eventPhaseLabel(anomaly.status)}`);
+ }
+ for(const assignment of Object.values(state.assignments)){
+  const match=state.watchlist[assignment.event.id];
+  const category:EventCategory=match?(match.subjectType==='Missing Person'?'person':'vehicle'):assignment.event.kind==='anomaly'?'traffic':assignment.event.kind==='municipal'?(state.issues[assignment.event.id]?.kind||'obstruction'):'incident';
+  categories.set(`assignment-${assignment.id}`,category);
+  categories.set(`acknowledgement-${assignment.id}`,category);
+ }
+ return <div className="activity-list event-activity">{policeSummary.activity.slice(0,4).map(item=><div className="event-scene-row" key={item.id}><EventThumbnail category={categories.get(item.id)||'incident'}/><p className="event-copy"><strong>{item.title}</strong><span>{trafficDetails.get(item.id)||item.detail}</span><time>{item.time}</time></p></div>)}</div>;
 }
 
 function TrafficControlEntries({open}:{open:(id:string)=>void}){
@@ -115,8 +141,8 @@ function TrafficControlEntries({open}:{open:(id:string)=>void}){
  const closed=anomalies.filter(item=>item.status==='Closed').length;
  return <section aria-label="Traffic control records">
   <SectionHeader title="Traffic control"/>
-  <p className="operation-meta" role="status">{active.length} active · {candidates} awaiting officer qualification · {closed} closed</p>
-  {anomalies.length?anomalies.map(item=><button className="traffic-control-link" key={item.id} onClick={()=>open(item.id)}><div><strong>Traffic control · {item.observation?.location||state.roadSegments[item.roadSegmentId]?.name||item.id}</strong><small>{item.dispatch?.stage||item.status} · {item.ratio===null?'Ratio unavailable':`${item.ratio.toFixed(1)}× baseline`} · {item.id}</small><small>Fleet observation candidate — not an authoritative emergency</small></div><ArrowRight aria-hidden="true"/></button>):<p className="operation-meta">No traffic candidates are available.</p>}
+  <p className="operation-meta" role="status">{active.length} active · {candidates} need officer check · {closed} closed</p>
+  {anomalies.length?anomalies.map(item=><button className="traffic-control-link event-scene-row" key={item.id} onClick={()=>open(item.id)}><EventThumbnail category="traffic"/><div className="event-copy"><strong>Traffic control · {item.observation?.location||state.roadSegments[item.roadSegmentId]?.name||item.id}</strong><small>{eventPhaseLabel(item.dispatch?.stage||item.status)} · {item.ratio===null?'Usual traffic comparison unavailable':`${item.ratio.toFixed(1)}× usual traffic`} · {item.id}</small><small>Bus observation · not a confirmed emergency</small></div><ArrowRight aria-hidden="true"/></button>):<p className="operation-meta">No traffic observations need review.</p>}
  </section>;
 }
 
@@ -145,7 +171,7 @@ function IncidentDetail({id,assignment,onBack,onMap,onEvidence,onAssign}:{id:str
   <div className="title-row"><div><h1>{x.type}</h1><p>{x.location} · {formatDemoDate(x.observedAt)}</p></div><SeverityBadge value={x.severity}/></div>
   {x.citizenReportId ? <Surface><p>Citizen report · {x.citizenReportId}</p><p>{x.citizenDescription}</p><p className="operation-meta">Reporter-selected corridor; requires officer assessment. No fleet detection or vehicle identification.</p></Surface> : <Surface className="facts"><div><span>Observed by</span><strong>{x.busId}</strong></div><div><span>Route</span><strong>{x.route}</strong></div><div><span>Vehicle</span><strong>{x.vehicleType}</strong></div><div><span>Plate</span><strong>{hasRegistration(x)?x.registrationNumber:'Not available'}</strong></div></Surface>}
   {assignment&&<div className="assignment-status"><CheckCircle2/><div><span>INVESTIGATION ASSIGNED</span><strong>{assignment.officer} · {assignment.team}</strong></div></div>}
-  <SectionHeader title="Evidence"/>{x.image ? <button className="evidence-preview" onClick={onEvidence}><img src={x.image} alt={x.citizenReportId?'Citizen-submitted photo':'Traffic observation evidence'}/><span>Review evidence</span><ArrowRight/></button> : <p className="operation-meta">No photo attached. The report description is available above.</p>}
+  <SectionHeader title="Evidence"/>{x.image ? <><button className="evidence-preview" onClick={onEvidence}><EvidenceImage src={x.image} alt={x.citizenReportId?'Citizen-submitted photo':'Illustrative traffic observation'}/><span>Review evidence</span><ArrowRight/></button><EvidenceCredit src={x.image}/></> : <p className="operation-meta">No photo attached. The report description is available above.</p>}
   <Surface className="operational-flow"><SectionHeader title="Incident progression"/><OperationalTimeline incident={x}/></Surface>
     {x.resolvedAt&&<p className="operation-meta">Resolved {formatDemoDate(x.resolvedAt)} · {x.resolutionSummary}</p>}
     <EmergencyDispatchPanel event={{kind:'incident',id}} actor="Police operator"/>
@@ -157,21 +183,30 @@ function IncidentDetail({id,assignment,onBack,onMap,onEvidence,onAssign}:{id:str
 
 function OperationalTimeline({incident}:{incident:CityIncident}){
  const steps=incident.track?.stages.length?incident.track.stages:[
-  {label:'Incident observed',timestamp:formatDemoTime(incident.observedAt),detail:incident.type},
-  ...(hasRegistration(incident)?[{label:'Registration recorded',timestamp:formatDemoTime(incident.observedAt),detail:`${incident.registrationNumber} · confidence ${incident.registrationConfidence}%`}]:[]),
+  {label:'Incident observed',timestamp:incident.observedAt,detail:incident.type},
+  ...(hasRegistration(incident)?[{label:'Registration recorded',timestamp:incident.observedAt,detail:`${incident.registrationNumber} · confidence ${incident.registrationConfidence}%`}]:[]),
  ];
  return <div className="operational-timeline">
-  {steps.map((step,index)=><div className={index===0?'observed':index===steps.length-1?'alert':'processing'} key={`${index}-${step.label}`}><i>✓</i><p><strong>{step.label}</strong><span>{/^\d{4}-\d{2}-\d{2}T/.test(step.timestamp)?formatDemoDate(step.timestamp):step.timestamp}</span>{step.detail!==incident.type&&<small>{step.detail}</small>}</p></div>)}
+  {steps.map((step,index)=><div className={index===0?'observed':index===steps.length-1?'alert':'processing'} key={`${index}-${step.label}`}><i>✓</i><p><strong>{step.label}</strong><span>{formatDemoDate(demoDate(step.timestamp,incident.observedAt))}</span>{step.detail!==incident.type&&<small>{step.detail}</small>}</p></div>)}
   <div className="action"><i>{steps.length+1}</i><p><strong>Officer review</strong><span>{incident.status}</span></p></div>
  </div>;
 }
 
 function EvidenceView({id,onBack}:{id:string;onBack:()=>void}){
  const {incidents}=useCityData();
+ const [selectedFrame,setSelectedFrame]=useState<number>();
  const x=incidents.find(item=>item.id===id);
  if(!x)return <MissingRecord id={id} onBack={onBack}/>;
+ const stages=x.track?.stages||[];
+ const frameIndex=Math.min(selectedFrame??stages.length-1,stages.length-1);
+ const frame=stages[frameIndex];
+ const image=frame?.image||x.image;
  return <div className="police-workflow"><AppHeader title="Evidence" subtitle={x.id} onBack={onBack}/><main className="page detail"><h1>{x.type}</h1>
-  <div className="evidence"><img src={x.image} alt="Traffic observation evidence"/>{x.vehicleType!=='Unknown'&&<div className="bbox vehicle"><span>{x.vehicleType.toUpperCase()}</span></div>}{hasRegistration(x)&&<div className="bbox plate"><span>{x.registrationNumber}</span></div>}<em>{formatDemoDate(x.observedAt)}</em></div>
+  <div className="evidence"><EvidenceImage src={image} alt={frame?`${frame.label} — synthetic demonstration frame`:'Illustrative road observation'}/></div>
+  <EvidenceCredit src={image}/>
+  {frame&&<p className="evidence-context" aria-live="polite"><strong>{formatDemoDate(demoDate(frame.timestamp,x.observedAt))} · {frame.label}</strong><br/>{frame.detail}</p>}
+  {stages.length>0&&<div className="evidence-frame-picker" aria-label="Camera processing stages">{stages.map((stage,index)=><button key={stage.timestamp} aria-pressed={index===frameIndex} onClick={()=>setSelectedFrame(index)}>{stage.image&&<EvidenceImage src={stage.image} alt="" loading="lazy"/>}<strong>{stage.label}</strong><small>{formatDemoDate(demoDate(stage.timestamp,x.observedAt))}</small></button>)}</div>}
+  {x.plateImage&&<figure className="plate-evidence"><EvidenceImage src={x.plateImage} alt={`Synthetic number plate region reading ${x.registrationNumber}`}/><figcaption>OCR demonstration · {x.registrationNumber} · fictional registration, not live recognition</figcaption><EvidenceCredit src={x.plateImage}/></figure>}
   <Surface className="facts"><div><span>Time</span><strong>{formatDemoTime(x.observedAt)}</strong></div><div><span>Location</span><strong>{x.location}</strong></div><div><span>Vehicle</span><strong>{x.vehicleType}</strong></div><div><span>Plate confidence</span><strong>{hasRegistration(x)?`${x.registrationConfidence}%`:'Not available'}</strong></div></Surface>
   <Surface className="operational-flow"><SectionHeader title="Event timeline"/><OperationalTimeline incident={x}/></Surface>
  </main></div>;
@@ -226,16 +261,21 @@ function MatchDetail({id,onBack}:{id:string;onBack:()=>void}){
  if(!x)return <MissingRecord id={id} onBack={onBack}/>;
  const decision=x.status==='Verified'||x.status==='Dismissed'?x.status:undefined;
  const observations=x.observations||[];
- const points=observations.map(item=>({id:item.id,latitude:item.latitude,longitude:item.longitude,label:`${item.busId} · ${item.timestamp}`}));
- const markers:PoliceGeoMarker[]=observations.map(item=>({id:item.id,type:'watchlist',latitude:item.latitude,longitude:item.longitude,label:`${item.timestamp} · ${item.location}`}));
+ const selected=observations.find(item=>item.id===observationId)||observations.at(-1);
+ const selectedImage=selected?.image||x.image;
+ const selectedTimestamp=formatDemoDate(demoDate(selected?.timestamp||x.timestamp));
+ const points=observations.map(item=>({id:item.id,latitude:item.latitude,longitude:item.longitude,label:`${item.busId} · ${formatDemoDate(demoDate(item.timestamp))}`}));
+ const markers:PoliceGeoMarker[]=observations.map(item=>({id:item.id,type:'watchlist',latitude:item.latitude,longitude:item.longitude,label:`${formatDemoDate(demoDate(item.timestamp))} · ${item.location}`}));
  return <div className="police-workflow"><AppHeader title="Possible watchlist match" subtitle={x.id} onBack={onBack}/><main className="page detail">
   <div className={`warning-note ${decision?.toLowerCase()||''}`}><Siren/><div><strong>{decision||'Requires officer verification'}</strong><span>{decision==='Verified'?'Match verified for investigation.':decision==='Dismissed'?'Match dismissed and removed from the active queue.':'Confidence is not confirmation of identity.'}</span></div></div>
   <h1>{x.subjectType==='Missing Person'?'Possible missing-person match':'Possible flagged-vehicle match'}</h1>
-  <div className="compare"><figure><img src={x.referenceImage} alt="Watchlist reference"/><figcaption>REFERENCE · {x.subjectName.split(' · ')[0]}</figcaption></figure><div>VS</div><figure><img src={x.image} alt="Fleet observation"/><ScanLine/><figcaption>OBSERVATION · {x.timestamp.split('·').at(-1)}</figcaption></figure></div>
-  <ConfidenceIndicator value={x.confidence}/>
+  <p className="evidence-context">Fictional target · synthetic scenes · no real identity or registration</p>
+  <div className="compare"><figure><EvidenceImage src={x.referenceImage} alt="Synthetic watchlist reference"/><figcaption>REFERENCE · {x.subjectName.split(' · ')[0]}</figcaption></figure><div>→</div><figure><EvidenceImage src={selectedImage} alt={`Synthetic observation at ${selected?.location||x.location}`}/><figcaption>OBSERVATION · {selectedTimestamp}</figcaption></figure></div>
+  <EvidenceCredit src={selectedImage}/>
+  <ConfidenceIndicator value={selected?.confidence??x.confidence}/>
   {x.subjectType==='Missing Person'&&<div className="privacy-note"><ShieldCheck/><span>Synthetic demo data only. Production privacy and access controls are future work; authentication is not implemented.</span></div>}
-  <Surface className="facts"><div><span>Observed by</span><strong>{x.busId}</strong></div><div><span>Latest location</span><strong>{x.location}</strong></div><div><span>Time</span><strong>{x.timestamp.split('·').at(-1)}</strong></div><div><span>Route</span><strong>{x.route}</strong></div></Surface>
-  {observations.length>0&&<><SectionHeader title="Fleet observation trail"/><div className="observation-list">{observations.map(o=><div key={o.id}><time>{o.timestamp}</time><i/><p><strong>{o.busId} · {o.location}</strong><span>Route {o.route} · {o.confidence===undefined?'Confidence unavailable':`${o.confidence}% possible match`}</span></p></div>)}</div>
+  <Surface className="facts"><div><span>Observed by</span><strong>{selected?.busId||x.busId}</strong></div><div><span>Selected location</span><strong>{selected?.location||x.location}</strong></div><div><span>Time</span><strong>{selectedTimestamp}</strong></div><div><span>Route</span><strong>{selected?.route||x.route}</strong></div></Surface>
+  {observations.length>0&&<><SectionHeader title="Fleet observation trail"/><p className="evidence-context">Select a sighting to connect its frame, bus, time and map location. Lines connect sightings; they are not a reconstructed driving route.</p><div className="evidence-trail">{observations.map((o,index)=><button key={o.id} aria-pressed={selected?.id===o.id} onClick={()=>setObservation(o.id)}>{o.image&&<EvidenceImage src={o.image} alt="" loading="lazy"/>}<span><strong>{index+1}. {o.location} · {formatDemoDate(demoDate(o.timestamp))}</strong><small>{o.busId} · Route {o.route}</small><small>{o.confidence===undefined?'Confidence unavailable':`${o.confidence}% possible match`}</small></span><ArrowRight aria-hidden="true"/></button>)}</div>
   <div className="mini-map real-map"><PoliceMapView markers={markers} selected={observationId||markers.at(-1)?.id} onSelect={setObservation} onTrailSelect={setObservation} trail={points}/></div>
   {observationId&&observations.find(item=>item.id===observationId)&&<PoliceObservationDetails matchId={id} observation={observations.find(item=>item.id===observationId)!}/>}
    <div className="trail-summary"><strong>Observed by {new Set(observations.map(item=>item.busId)).size} different buses</strong><span>Chronological sightings from the distributed fleet</span></div>
@@ -261,5 +301,5 @@ function PoliceMapDetails({record}:{record:PoliceMapRecord}){
  const item=watchlist.find(match=>match.id===record.id);
  if(!item)return null;
  const observations=item.observations||[];
- return <div className="map-detail-grid"><span>Target<strong>{item.subjectName}</strong></span><span>Match type<strong>{item.subjectType}</strong></span><span>Confidence<strong>{item.confidence}%</strong></span><span>Timestamp<strong>{item.timestamp}</strong></span><span>Bus ID<strong>{item.busId}</strong></span><span>Location<strong>{item.location}</strong></span><span>Evidence<strong>{observations.length} fleet sightings</strong></span>{item.subjectType==='Flagged Vehicle'&&<p>Detected plate: {item.subjectName}</p>}<div className="sheet-trail">{observations.map((observation,index)=><div key={observation.id}><b>{observation.busId}</b><span>{observation.timestamp} · {observation.location}</span>{index<observations.length-1&&<i>↓</i>}</div>)}</div></div>;
+ return <div className="map-detail-grid"><span>Target<strong>{item.subjectName}</strong></span><span>Match type<strong>{item.subjectType}</strong></span><span>Confidence<strong>{item.confidence}%</strong></span><span>Timestamp<strong>{formatDemoDate(demoDate(item.timestamp))}</strong></span><span>Bus ID<strong>{item.busId}</strong></span><span>Location<strong>{item.location}</strong></span><span>Evidence<strong>{observations.length} fleet sightings</strong></span>{item.subjectType==='Flagged Vehicle'&&<p>Detected plate: {item.subjectName}</p>}<div className="sheet-trail">{observations.map((observation,index)=><div key={observation.id}><b>{observation.busId}</b><span>{formatDemoDate(demoDate(observation.timestamp))} · {observation.location}</span>{index<observations.length-1&&<i>↓</i>}</div>)}</div></div>;
 }

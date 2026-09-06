@@ -3,6 +3,7 @@ import { calculateScenario } from './planning';
 import { selectAssignment } from './selectors';
 import { emergencyEligible, selectEmergency } from './operations';
 import { reportCategories, reportRecipient, type ReportRecipient } from './citizenReports';
+import { anchorCityHistory, browserClock, formatDemoTime, timestampMillis, type CityClock } from './time';
 
 export type CityCommand =
   | { type: 'submitCitizenReport'; input: CitizenReportInput }
@@ -40,7 +41,7 @@ function text(value: string, label: string) {
   if (!value.trim()) throw new Error(`${label} is required`);
 }
 function validTime(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('An explicit ISO timestamp is required');
+  timestampMillis(value);
 }
 function activeDispatch(state: CityState, anomalyId: string) {
   return Object.values(state.dispatches).find(dispatch => dispatch.anomalyId === anomalyId);
@@ -56,11 +57,13 @@ function pendingReview(state: CityState, event: EventRef) {
 }
 
 /** Pure, atomic commands. Rejected commands never alter the previous snapshot. */
-export function reduceCity(state: CityState, command: CityCommand): CityState {
+export function reduceCity(state: CityState, command: CityCommand, now = state.now): CityState {
   const next = structuredClone(state);
   const sequence = state.revision + 1;
-  // Logical time advances only on explicit commands, never wall-clock timers or screen mounts.
-  next.now = new Date(Date.parse(state.now) + 60_000).toISOString();
+  // Real/injected time, with a 1 ms tie-break for rapid commands and backwards clock adjustments.
+  // The deterministic default needs no timers. Rejected/no-op commands consume no logical ticks.
+  next.now = command.type === 'setTime' ? state.now
+    : new Date(Math.max(timestampMillis(now), timestampMillis(state.now) + 1)).toISOString();
   const id = (prefix: string) => `${prefix}-${String(sequence).padStart(4, '0')}`;
   switch (command.type) {
     case 'submitCitizenReport': {
@@ -268,7 +271,7 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
       const source = next.trafficObservations[anomaly.observationId];
       // Explicit deterministic demo pass, not an inferred consequence of pressing Resolve.
       next.trafficObservations[id('TR-RECOVERY')] = { ...structuredClone(source), id: id('TR-RECOVERY'), observedAt: next.now,
-        timestamp: next.now, vehicleCount: source.baselineVehicleCount, averageSpeed: 42, densityLevel: 'Free', trend: 'Decreasing',
+        timestamp: formatDemoTime(next.now), vehicleCount: source.baselineVehicleCount, averageSpeed: 42, densityLevel: 'Free', trend: 'Decreasing',
         recommendedAction: 'Traffic has returned to the demo baseline; check active municipal work before travelling' };
       dispatch.history.push({ at: next.now, action: 'Demo fleet follow-up: traffic returned to 1.0× baseline', actor: command.actor });
       break;
@@ -332,7 +335,7 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
       text(observation.baselineSource, 'Baseline provenance');
       if (!observation.sourceBusIds.length || observation.sourceBusIds.some(bus => !next.buses[bus])) throw new Error('Unknown traffic source bus');
       if (Date.parse(observation.observedAt) > Date.parse(next.now)) throw new Error('Advance the demo clock before recording future traffic');
-      next.trafficObservations[observation.id] = structuredClone(observation);
+      next.trafficObservations[observation.id] = { ...structuredClone(observation), timestamp: formatDemoTime(observation.observedAt) };
       const existing = Object.values(next.anomalies).some(anomaly => anomaly.roadSegmentId === observation.roadSegmentId && !['Closed','Dismissed'].includes(anomaly.status));
       if (!existing && observation.vehicleCount / observation.baselineVehicleCount >= 2) {
         next.anomalies[id('ANOM')] = { id: id('ANOM'), roadSegmentId: observation.roadSegmentId, observationId: observation.id,
@@ -342,7 +345,7 @@ export function reduceCity(state: CityState, command: CityCommand): CityState {
     }
     case 'createScenario': {
       // A closure explicitly starting at the pre-command clock is valid ("start now").
-      const scenario = calculateScenario(state, command, id('SIM'));
+      const scenario = calculateScenario(command.startsAt === state.now ? state : next, command, id('SIM'));
       scenario.createdAt = next.now;
       next.scenarios[scenario.id] = scenario;
       next.projects[id('PRJ')] = { id: id('PRJ'), scenarioId: scenario.id, title: `${next.roads[next.roadSegments[scenario.roadSegmentId].roadId].name} — municipal work`, projectType: 'Road works', status: 'Draft', createdAt: next.now };
@@ -386,18 +389,42 @@ function freeze<T>(value: T): T {
 }
 
 /** One instance owns domain state. UI selection/cameras remain in their existing role components. */
-export function createCityStore(seed: CityState) {
-  const initial = freeze(structuredClone(seed));
+export function createCityStore(seed: CityState, options: { clock?: CityClock } = {}) {
+  let initial = freeze(structuredClone(seed));
   let current = initial;
+  let clock = options.clock;
+  let browserSessionStarted = false;
   const listeners = new Set<() => void>();
+  // Reduce against a private snapshot; a failure discards every intermediate step.
+  // Each command retains its revision, history and existing clock semantics.
+  const dispatchBatch = (commands: readonly CityCommand[]) => {
+    let next = current;
+    for (const command of commands) {
+      next = reduceCity(next, command, command.type === 'setTime' ? next.now : clock?.() || next.now);
+    }
+    if (next !== current) { current = freeze(next); listeners.forEach(listener => listener()); }
+    return current;
+  };
   return {
     getSnapshot: () => current,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    dispatch: (command: CityCommand) => {
-      const next = reduceCity(current, command);
-      if (next !== current) { current = freeze(next); listeners.forEach(listener => listener()); }
+    // Call BEFORE rendering the first workspace (including restored role startup).
+    // Role switches/repeated StrictMode entry are no-ops, never reseeds or resets.
+    startBrowserSession: (anchor = (options.clock || browserClock)()) => {
+      if (browserSessionStarted) return current;
+      validTime(anchor);
+      // A late integration call must not discard or re-date user commands already committed.
+      const next = current === initial && current.revision === 0 ? anchorCityHistory(current, anchor)
+        : { ...current, now: new Date(Math.max(timestampMillis(current.now), timestampMillis(anchor))).toISOString() };
+      current = freeze(next);
+      if (current.revision === 0) initial = current;
+      clock = options.clock || browserClock;
+      browserSessionStarted = true;
+      listeners.forEach(listener => listener());
       return current;
     },
+    dispatch: (command: CityCommand) => dispatchBatch([command]),
+    dispatchBatch,
     reset: () => { current = initial; listeners.forEach(listener => listener()); },
   };
 }

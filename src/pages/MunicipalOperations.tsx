@@ -29,9 +29,7 @@ import {
   type MunicipalMapCamera,
 } from "../components/MunicipalMapView";
 import { ObservationProgression } from "../components/PotholeLifecycle";
-import { Bar } from "../components/charts/bar";
-import { BarChart } from "../components/charts/bar-chart";
-import { BarXAxis } from "../components/charts/bar-x-axis";
+import { EventThumbnail, eventPhaseLabel } from "../components/EventThumbnail";
 import { Grid } from "../components/charts/grid";
 import { Line, LineChart } from "../components/charts/line-chart";
 import { ChartTooltip } from "../components/charts/tooltip";
@@ -44,6 +42,7 @@ import type { MunicipalTask } from "../types/city";
 import { MunicipalReportInbox } from "../components/CitizenReports";
 import { useOperation } from "../components/operations";
 import { formatDemoDate, formatDemoTime } from "../domain/time";
+import { EvidenceCredit, EvidenceImage } from "../components/EvidenceMedia";
 
 type View =
   | { kind: "detail" | "lifecycle"; id: string }
@@ -188,7 +187,7 @@ function Overview({
   open: (x: RoadDefect) => void;
   openTask: (target: MunicipalTask['target']) => void;
 }) {
-  const { defects, plannerRoadSegments } = useCityData();
+  const { defects } = useCityData();
   const openIssues = defects.filter((item) => item.workflowStage !== "Closed");
   const criticalIssues = openIssues.filter((item) => item.severity === "Critical");
   const infrastructureIssues = openIssues.filter(
@@ -202,10 +201,6 @@ function Overview({
     0,
   );
   const reportingBuses = new Set(defects.flatMap((item) => item.busIds)).size;
-  const corridorCoverage = plannerRoadSegments.map((segment) => ({
-    corridor: segment.name.split(" · ")[0].replace(" Road", ""),
-    passes: segment.observedPasses,
-  }));
   const severityRank: Record<Severity, number> = {
     Critical: 4,
     High: 3,
@@ -218,6 +213,7 @@ function Overview({
         severityRank[right.severity] - severityRank[left.severity],
     )
     .slice(0, 3);
+  const completedExample = defects.find(item => item.workflowStage === 'Closed' && (item.observations?.length || 0) > 1);
   return (
     <div className="page municipal-overview">
       <PageIntro
@@ -260,23 +256,9 @@ function Overview({
           </span>
         </div>
       </div>
+      {completedExample && <button className="traffic-control-link event-scene-row" onClick={() => open(completedExample)}><EventThumbnail category={completedExample.kind}/><div className="event-copy"><strong>{completedExample.defectType} · repaired and verified</strong><small>{completedExample.observations?.length} recorded stages · view the repair history</small></div><ArrowRight aria-hidden="true"/></button>}
       <MunicipalTasks onOpen={openTask} />
-      <section className="operations-brief">
-        <div className="observation-trend">
-          <header>
-            <span>MUNICIPAL FLEET OBSERVATION COVERAGE</span>
-            <strong>
-              {plannerRoadSegments.length} <small>sampled corridors</small>
-            </strong>
-          </header>
-          <BarChart data={corridorCoverage} xDataKey="corridor" aspectRatio="2.65 / 1" margin={{ top: 12, right: 8, bottom: 38, left: 8 }} barGap={0.28}>
-            <Grid horizontal vertical={false} numTicksRows={4} stroke="#d7dfdc" strokeDasharray="3,4" />
-            <Bar dataKey="passes" fill="#315c51" lineCap={3} />
-            <BarXAxis maxLabels={4} tickerHalfWidth={34} />
-            <ChartTooltip showDatePill={false} rows={(point) => [{ color: "#315c51", label: "Observed fleet passes", value: Number(point.passes) }]} />
-          </BarChart>
-          <details className="chart-data"><summary>View coverage data</summary><table><thead><tr><th scope="col">Corridor</th><th scope="col">Observed passes</th></tr></thead><tbody>{corridorCoverage.map(item => <tr key={item.corridor}><th scope="row">{item.corridor}</th><td>{item.passes}</td></tr>)}</tbody></table></details>
-        </div>
+      <section className="operations-brief event-priorities">
         <div className="geographic-pressure">
           <header>
             <span>PRIORITY LOCATIONS</span>
@@ -285,27 +267,19 @@ function Overview({
             </button>
           </header>
           {priorities.map((item) => (
-            <button key={item.id} onClick={() => open(item)}>
-              <i
-                data-tone={
-                  item.severity === "Critical"
-                    ? "high"
-                    : item.severity === "High"
-                      ? "medium"
-                      : "low"
-                }
-              />
-              <span>
+            <button className="event-scene-row" key={item.id} onClick={() => open(item)}>
+              <EventThumbnail category={item.kind}/>
+              <span className="event-copy">
                 <strong>{item.location}</strong>
                 <small>{item.defectType}</small>
               </span>
-              <b>{item.status}</b>
+              <b>{eventPhaseLabel(item.workflowStage)}</b>
             </button>
           ))}
         </div>
       </section>
       <SectionHeader
-        title="Priority evidence"
+        title="Priority issue"
         action="View all"
         onAction={() => showIssues("All")}
       />
@@ -376,6 +350,7 @@ function Detail({
   home: () => void;
   lifecycle: () => void;
 }) {
+  useEffect(() => { window.scrollTo(0, 0); }, [id]);
   const { defects, state } = useCityData();
   const x = defects.find((d) => d.id === id);
   const { resolution, review } = selectEventResolution(state, { kind: "municipal", id });
@@ -423,8 +398,11 @@ function Detail({
           </div>
           <SeverityBadge value={x.severity} />
         </div>
+        <MunicipalWorkflow issueId={id} />
+        <details className="operation-panel municipal-evidence-details">
+        <summary>Road evidence & observation history</summary>
         {(latest?.image || x.image) ? <div className="road-frame">
-          <img
+          <EvidenceImage
             src={latest?.image || x.image}
             alt={`${x.defectType} latest observation`}
           />
@@ -433,6 +411,13 @@ function Detail({
             {x.citizenReportId ? `${formatDemoDate(x.lastSeen)} · Citizen photo` : `${x.lastSeen} · ${latest?.busId || x.busIds.at(-1)}`}
           </em>
         </div> : <p className="operation-meta">No photo attached. Field assessment required.</p>}
+        <EvidenceCredit src={latest?.image || x.image}/>
+        {hasProgression && (
+          <button className="primary full evidence-story-link" onClick={lifecycle}>
+            View {x.observations?.length} stages · {x.progressionTitle?.toLowerCase() || "condition progression"}
+            <ArrowRight />
+          </button>
+        )}
         <Surface className="detail-facts">
           <div>
             <span>{x.citizenReportId ? 'Reported at' : 'First observed'}</span>
@@ -468,7 +453,7 @@ function Detail({
             <small>{x.maintenanceState}</small>
           </section>
         )}
-        <MunicipalWorkflow issueId={id} />
+        </details>
         <EmergencyDispatchPanel event={{ kind: "municipal", id }} actor="Municipal admin" />
         {x.repair && (!resolution || !review || x.repair.busId) && (
           <Surface className="verification">
@@ -481,12 +466,6 @@ function Detail({
               </p>
             </div>
           </Surface>
-        )}
-        {hasProgression && (
-          <button className="primary full" onClick={lifecycle}>
-            Open {x.progressionTitle?.toLowerCase() || "condition progression"}{" "}
-            <ArrowRight />
-          </button>
         )}
       </main>
     </>

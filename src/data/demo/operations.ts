@@ -1,8 +1,8 @@
-import illustration from '../../assets/evidence-road.svg';
+import { completionEvidenceByKind } from './evidence';
 import type { IssueKind } from '../../types/city';
 
-// Operator-editable demo defaults, not inferred repair results. The illustration is explicitly labelled.
-export const completionEvidence = illustration;
+// Operator-editable demo defaults, not inferred repair results.
+export const completionEvidence = (kind: IssueKind) => completionEvidenceByKind[kind];
 export const issueResolutionDefaults: Record<IssueKind, { summary: string; condition: string }> = {
   obstruction: { summary: 'Obstruction removed and carriageway inspected', condition: 'Carriageway clear of the reported obstruction' },
   pothole: { summary: 'Pothole filled and surface levelled', condition: 'Surface sealed and level' },

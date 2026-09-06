@@ -1,6 +1,6 @@
 import { cityStore } from './city';
 import type { CityCommand } from '../domain/cityStore';
-import type { CitizenReportInput, EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
+import type { CitizenReportInput, CityState, EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
 import { completionEvidence } from '../data/demo/operations';
 import { selectMunicipalTasks } from '../domain/operations';
 import { reportRecipient } from '../domain/citizenReports';
@@ -9,6 +9,8 @@ import { selectAssignment, selectCitizenAlerts, selectCitizenContext, selectCiti
 // Promise-shaped boundaries remain replaceable by HTTP implementations. No independent caches.
 const query = <T,>(read: () => T): Promise<T> => Promise.resolve().then(() => structuredClone(read()));
 const command = (action: CityCommand) => Promise.resolve().then(() => cityStore.dispatch(action));
+// Build and execute without yielding, so guards and commands use the same snapshot.
+const batch = (build: (state: CityState) => readonly CityCommand[]) => Promise.resolve().then(() => cityStore.dispatchBatch(build(cityStore.getSnapshot())));
 export const incidentsService = {
 	resolveCitizenReport: (incidentId: string, actor: string, note: string) => command({ type: 'resolveCitizenIncident', incidentId, actor, note }).then(state => structuredClone(state.incidents[incidentId])),
 	getCitizenReports: () => query(() => Object.values(cityStore.getSnapshot().citizenReports).filter(report => reportRecipient(report.category) === 'police')),
@@ -24,6 +26,25 @@ export const watchlistService = {
 	decide: (matchId: string, decision: 'Verified' | 'Dismissed') => command({ type: 'decideMatch', matchId, decision }).then(state => structuredClone(state.watchlist[matchId])),
 };
 export const municipalService = {
+ confirmAndAssign: (issueId: string, teamId: string, assignee: string, actor: string) => batch(state => {
+		const issue = state.issues[issueId];
+		if (!issue) throw new Error('Unknown municipal issue');
+		if (!['Detected', 'Qualified'].includes(issue.workflowStage)) throw new Error('Only detected or qualified issues can be confirmed and assigned');
+		if (!actor.trim()) throw new Error('Reviewing official is required');
+		const commands: CityCommand[] = [];
+		if (issue.workflowStage === 'Detected') commands.push({ type: 'qualifyIssue', issueId, actor });
+		commands.push({ type: 'assign', event: { kind: 'municipal', id: issueId }, teamId, assignee });
+		return commands;
+	}).then(state => structuredClone(selectAssignment(state, { kind: 'municipal', id: issueId }))),
+	acceptAndStart: (issueId: string) => batch(state => {
+		const issue = state.issues[issueId];
+		if (!issue) throw new Error('Unknown municipal issue');
+		if (!['Assigned', 'Acknowledged'].includes(issue.workflowStage)) throw new Error('Only assigned or acknowledged issues can be accepted and started');
+		const commands: CityCommand[] = [];
+		if (issue.workflowStage === 'Assigned') commands.push({ type: 'acknowledge', issueId });
+		commands.push({ type: 'startFieldWork', issueId });
+		return commands;
+	}).then(state => structuredClone(selectIssues(state).find(item => item.id === issueId))),
  getCitizenReports: () => query(() => Object.values(cityStore.getSnapshot().citizenReports).filter(report => reportRecipient(report.category) === 'municipal')),
  reviewCitizenReport: (reportId: string, decision: 'Accepted' | 'Dismissed', note: string) => command({ type: 'reviewCitizenReport', reportId, decision, note, reviewerRole: 'municipal' }).then(state => structuredClone(state.citizenReports[reportId])),
 	qualify: (issueId: string, actor: string) => command({ type: 'qualifyIssue', issueId, actor }).then(() => municipalService.getRoadDefect(issueId)),
@@ -50,12 +71,26 @@ export const municipalService = {
 	cancelProject: (projectId: string) => command({ type: 'cancelProject', projectId }).then(state => structuredClone(state.projects[projectId])),
 };
 export const workflowService = {
+	approveAndClose: (reviewId: string, reviewer: string, note: string) => batch(state => {
+		const review = state.reviews[reviewId];
+		if (!review) throw new Error('Unknown admin review');
+		const resolution = state.resolutions[review.resolutionId];
+		if (!resolution) throw new Error('Unknown resolution');
+		const commands: CityCommand[] = [{ type: 'reviewResolution', reviewId, decision: 'Verified', reviewer, note }];
+		if (resolution.event.kind === 'municipal') commands.push({ type: 'closeIssue', issueId: resolution.event.id, actor: reviewer });
+		else if (resolution.event.kind === 'anomaly') {
+			const dispatch = Object.values(state.dispatches).find(item => item.anomalyId === resolution.event.id);
+			if (!dispatch) throw new Error('Unknown dispatch');
+			commands.push({ type: 'closeDispatch', dispatchId: dispatch.id, actor: reviewer });
+		} else throw new Error('This event does not support resolution approval and closure');
+		return commands;
+	}).then(state => structuredClone(state.reviews[reviewId])),
 	submitDemoResolution: (event: EventRef, summary: string, resultingCondition: string) => Promise.resolve().then(() => {
 		const state = cityStore.getSnapshot();
 		const assignment = selectAssignment(state, event);
 		return workflowService.submitResolution({ event, summary, resultingCondition, submittedBy: assignment?.assignee || 'Demo field team', evidence: [{
-			id: `FIELD-${event.id}-${state.revision + 1}`, image: completionEvidence, capturedAt: state.now,
-			description: 'Local illustrative field-completion fixture — not an actual post-repair photograph',
+			id: `FIELD-${event.id}-${state.revision + 1}`, image: completionEvidence(event.kind === 'municipal' ? state.issues[event.id]?.kind || 'obstruction' : 'obstruction'), capturedAt: state.now,
+			description: 'Illustrative completion evidence for this issue type — not a photograph of work at this site',
 		}] });
 	}),
 	getAssignment: (event: EventRef) => query(() => selectAssignment(cityStore.getSnapshot(), event)),
@@ -65,6 +100,20 @@ export const workflowService = {
 	reviewResolution: (reviewId: string, decision: 'Verified' | 'Returned', reviewer: string, note: string) => command({ type: 'reviewResolution', reviewId, decision, reviewer, note }).then(state => structuredClone(state.reviews[reviewId])),
 };
 export const policeTrafficService = {
+	confirmAndAssign: (anomalyId: string, teamId: string, assignee: string, actor: string) => batch(state => {
+		const anomaly = state.anomalies[anomalyId];
+		if (!anomaly) throw new Error('Unknown traffic anomaly');
+		const dispatch = Object.values(state.dispatches).find(item => item.anomalyId === anomalyId);
+		if (dispatch ? dispatch.stage !== 'Requested' || anomaly.status !== 'Dispatched' : !['Candidate', 'Qualified'].includes(anomaly.status)) {
+			throw new Error('Only candidate, qualified or dispatch-requested anomalies can be confirmed and assigned');
+		}
+		if (!actor.trim()) throw new Error('Reviewing officer is required');
+		const commands: CityCommand[] = [];
+		if (anomaly.status === 'Candidate') commands.push({ type: 'qualifyAnomaly', anomalyId, actor });
+		if (!dispatch) commands.push({ type: 'requestDispatch', anomalyId, actor });
+		commands.push({ type: 'assign', event: { kind: 'anomaly', id: anomalyId }, teamId, assignee });
+		return commands;
+	}).then(state => structuredClone(selectAssignment(state, { kind: 'anomaly', id: anomalyId }))),
 	recordFollowUp: (anomalyId: string, actor: string) => command({ type: 'observeRecovery', anomalyId, actor }).then(() => undefined),
 	close: (dispatchId: string, actor: string) => command({ type: 'closeDispatch', dispatchId, actor }).then(state => structuredClone(state.dispatches[dispatchId])),
 	getAnomalies: () => query(() => selectTrafficAnomalies(cityStore.getSnapshot())),

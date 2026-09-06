@@ -3,7 +3,7 @@ import type {
   CitizenJourney, CitizenMobilityContext, CityState, CityTrafficObservation, DepartmentAssignment,
   EventRef, MunicipalIssue, PublicMunicipalProject, PublicRoadCondition, PublicRoadImpact, RouteLeg,
 } from '../types/city';
-import { demoDate, formatDemoDate, formatDemoTime, relativeDemoTime } from './time';
+import { demoDate, formatDemoDate, formatDemoTime, formatDemoTimestamp, relativeDemoTime } from './time';
 
 const inactiveStatuses: readonly Status[] = ['Resolved', 'Closed', 'Verified', 'Dismissed'];
 const isActive = (status: Status) => !inactiveStatuses.includes(status);
@@ -11,7 +11,7 @@ const sameEvent = (left: EventRef, right: EventRef) => left.kind === right.kind 
 const byTime = (left: string, right: string) => Date.parse(left) - Date.parse(right);
 const byId = (left: { id: string }, right: { id: string }) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 
-// Legacy display timestamps occur only on seed watchlist/issue records.
+// Compatibility for isolated legacy fixtures. Production store history is canonical ISO.
 function observedTime(value: string): string {
   return /^\d{4}-\d{2}-\d{2}T/.test(value) ? value : demoDate(value);
 }
@@ -83,6 +83,14 @@ function resolutionFor(state: CityState, event: EventRef) {
 export function selectIssues(state: CityState): MunicipalIssue[] {
   return Object.values(state.issues).map(original => {
     const issue = structuredClone(original);
+    if (!issue.citizenReportId) {
+      issue.firstSeen = formatDemoDate(observedTime(original.firstSeen));
+      issue.lastSeen = formatDemoDate(observedTime(original.lastSeen));
+    }
+    if (issue.repair) {
+      issue.repair.markedRepaired = formatDemoDate(observedTime(issue.repair.markedRepaired));
+      issue.repair.nextObservation = formatDemoDate(observedTime(issue.repair.nextObservation));
+    }
     const { resolution, review, decision } = resolutionFor(state, { kind: 'municipal', id: issue.id });
     if (!resolution) return issue;
     const verified = decision === 'Verified';
@@ -111,10 +119,13 @@ export function selectIssues(state: CityState): MunicipalIssue[] {
 export function selectWatchlist(state: CityState): WatchlistMatch[] {
   return Object.values(state.watchlist).map(item => {
     const match = structuredClone(item);
+    match.timestamp = formatDemoTimestamp(observedTime(match.timestamp));
+    for (const observation of match.observations || []) observation.timestamp = formatDemoTimestamp(observedTime(observation.timestamp));
     const latest = match.observations?.at(-1);
     return latest ? {
       ...match, location: latest.location, timestamp: latest.timestamp,
       busId: latest.busId, route: latest.route, confidence: latest.confidence ?? match.confidence,
+      image: latest.image || match.image,
     } : match;
   });
 }
@@ -286,7 +297,7 @@ export function selectCitizenRoute(state: CityState): CitizenJourney {
 
 export function selectPoliceSummary(state: CityState) {
   const incidents = Object.values(state.incidents);
-  const matches = selectWatchlist(state);
+  const matches = Object.values(state.watchlist);
   const observations = latestTraffic(state);
   const events: { id: string; at: string; title: string; detail: string }[] = [
     ...incidents.map(item => ({ id: `incident-${item.id}`, at: item.observedAt, title: item.type, detail: `${item.id} · ${item.location} · ${item.status}` })),

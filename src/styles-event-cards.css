@@ -1,0 +1,54 @@
+/* Keep scene geometry independent of the surrounding lucide icon rules. */
+.event-thumbnail.event-thumbnail {
+  display: block;
+  flex: 0 0 76px;
+  width: 76px;
+  height: 70px;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dce5de;
+  border-radius: 12px;
+  background: #edf2ed;
+  align-self: start;
+}
+.event-thumbnail > svg.event-thumbnail-scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  vertical-align: initial;
+}
+.event-card.event-card, .watch-card.watch-card { align-items: start; padding: 14px; gap: 12px; border-radius: 10px; }
+.event-card .event-main > span, .event-card .event-main > small { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.event-card .card-top { flex-wrap: wrap; gap: 4px 8px; }
+.watch-card.watch-card > .event-copy { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.traffic-control-link.event-scene-row { border-radius: 10px; align-items: start; }
+.event-scene-row > .event-copy { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.event-scene-row > .lucide { flex: 0 0 16px; width: 16px; height: 20px; align-self: center; }
+.admin-tasks.admin-tasks > header { flex-wrap: wrap; margin-bottom: 10px; }
+.admin-tasks .admin-task.event-scene-row { display: flex; align-items: start; gap: 12px; }
+.admin-task .event-copy { display: grid; gap: 4px; }
+.admin-task .event-copy > span { margin: 0; }
+.municipal-overview .operations-brief.event-priorities { grid-template-columns: minmax(0, 1fr); border-radius: 10px; }
+.event-priorities .geographic-pressure > .event-scene-row { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 12px; }
+.event-priorities .geographic-pressure .event-copy { gap: 5px; }
+.event-priorities .geographic-pressure strong { white-space: normal; font-size: 12px; line-height: 1.4; }
+.event-priorities .geographic-pressure small, .event-priorities .geographic-pressure b { font-size: 11px; }
+.event-priorities .geographic-pressure b { white-space: normal; max-width: 110px; }
+.activity-list.event-activity > .event-scene-row { grid-template-columns: 60px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 0; }
+.activity-list.event-activity .event-thumbnail { width: 60px; height: 56px; }
+.activity-list.event-activity .event-copy { gap: 4px; }
+.activity-list.event-activity strong { font-size: 12px; line-height: 1.4; }
+.activity-list.event-activity span:not(.event-thumbnail), .activity-list.event-activity time { font-size: 11px; line-height: 1.5; }
+.citizen-intake .report-inbox-row.event-scene-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(70px, 100px); gap: 12px; }
+.citizen-intake .report-inbox-row.event-scene-row > span:last-child { min-width: 0; }
+@media (max-width: 430px) {
+  .event-thumbnail.event-thumbnail { flex-basis: 60px; width: 60px; height: 56px; }
+  .event-card.event-card, .watch-card.watch-card { padding: 12px; gap: 10px; }
+  .event-priorities .geographic-pressure > .event-scene-row, .citizen-intake .report-inbox-row.event-scene-row { grid-template-columns: 60px minmax(0, 1fr); gap: 6px 10px; }
+  .event-priorities .event-scene-row > .event-thumbnail, .report-inbox-row.event-scene-row > .event-thumbnail { grid-row: 1 / 3; }
+  .event-priorities .event-scene-row > b, .citizen-intake .report-inbox-row.event-scene-row > span:last-child { grid-column: 2; text-align: left; max-width: none; }
+}

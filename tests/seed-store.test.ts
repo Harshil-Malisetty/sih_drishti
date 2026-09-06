@@ -50,7 +50,7 @@ describe('atomic immutable city store', () => {
     const next = store.dispatch({ type: 'assign', event: { kind: 'municipal', id: 'DEF-8292' }, teamId: 'stormwater-team', assignee: 'Drainage lead' });
     expect(next).not.toBe(initial);
     expect(next.revision).toBe(1);
-    expect(Date.parse(next.now) - Date.parse(initial.now)).toBe(60_000);
+    expect(Date.parse(next.now) - Date.parse(initial.now)).toBe(1);
     expect(initial).toEqual(createCitySeed());
     expect(Object.isFrozen(next.assignments['ASN-0001'])).toBe(true);
   });

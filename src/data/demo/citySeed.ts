@@ -1,6 +1,6 @@
 import { buses, defects, incidents, municipalEvidenceImages, plannerRoadSegments, traffic, watchlist } from './index';
 import type { CityState, CityTrafficObservation, Department, IssueKind, MunicipalIssue, RoadSegment, Team } from '../../types/city';
-import { demoDate, formatDemoDate } from '../../domain/time';
+import { anchorCityHistory, demoDate } from '../../domain/time';
 
 export const DEMO_START = '2026-09-05T18:55:00+05:30';
 const byId = <T extends { id: string }>(items: T[]): Record<string, T> => Object.fromEntries(items.map(item => [item.id, item]));
@@ -35,8 +35,9 @@ const teams: Team[] = [
   { id: 'city-response-team', departmentId: 'city-response', name: 'City Response Team' },
 ];
 
+// Explicit anchor keeps tests deterministic; the browser supplies its first workspace-entry time.
 // Legacy display fixtures are seed inputs only. All application reads go through the city store.
-export function createCitySeed(): CityState {
+export function createCitySeed(anchor = DEMO_START): CityState {
   const roadSegments = byId<RoadSegment>(plannerRoadSegments.map(segment => {
     const { hourlyVehicles, ...definition } = structuredClone(segment);
     return { ...definition, roadId: segment.id, planningEnabled: true, baselineHourlyVehicles: hourlyVehicles };
@@ -87,8 +88,9 @@ export function createCitySeed(): CityState {
   }));
   // Reconcile the already-verified seed with actual post-repair history; do not relabel the old pothole photo.
   const repaired = issues['DEF-8301'];
-  repaired.observations!.push({ day: 25, date: '05 Sep · 16:12', observedAt: demoDate('05 Sep · 16:12'), label: 'Repair verified', detail: 'Illustrative post-repair fleet evidence: surface sealed and level.', relativeSize: 8, busId: 'MTC-2147', image: municipalEvidenceImages.pothole.early, source: 'Post-repair demo verification pass' });
-  repaired.image = municipalEvidenceImages.pothole.early;
+  repaired.observations!.push({ day: 23, date: '03 Sep · 15:55', observedAt: demoDate('03 Sep · 15:55'), label: 'Repair in progress', detail: 'Field team compacts the patch; admin verification is still required.', relativeSize: 42, busId: '', image: municipalEvidenceImages.pothole.repair, source: 'Illustrative field-work stage — not a bus observation' });
+  repaired.observations!.push({ day: 25, date: '05 Sep · 16:12', observedAt: demoDate('05 Sep · 16:12'), label: 'Repair verified', detail: 'Demo verification records a sealed, level surface. The photograph illustrates a completed patch, not this site.', relativeSize: 8, busId: 'MTC-2147', image: municipalEvidenceImages.pothole.verified, source: 'Post-repair demo verification pass' });
+  repaired.image = municipalEvidenceImages.pothole.verified;
   repaired.recommendedAction = 'Continue routine fleet monitoring';
   const busSegments: Record<string, string> = {
     'MTC-2147': 'anna', 'MTC-1423': 'anna', 'MTC-1831': 'gst-saidapet', 'MTC-2014': 'guindy-kathipara',
@@ -114,6 +116,6 @@ export function createCitySeed(): CityState {
   repaired.history.push({ at: demoDate('03 Sep · 16:00'), action: 'Field resolution submitted for admin review', actor: 'Roads field supervisor' },{ at: demoDate('05 Sep · 16:12'), action: 'Resolution verified and issue closed', actor: 'Municipal admin' });
   state.assignments['ASN-SEED-2'] = { id: 'ASN-SEED-2', event: { kind: 'incident', id: 'INC-24091' }, departmentId: 'traffic-police', teamId: 'traffic-investigation', assignee: 'Inspector R. Kumar', assignedAt: demoDate('01 Sep · 18:43') };
   state.anomalies['ANOM-ANNA-1'] = { id: 'ANOM-ANNA-1', roadSegmentId: 'anna', observationId: 'TR-1', detectedAt: trafficObservations['TR-1'].observedAt, status: 'Candidate', history: [{ at: DEMO_START, action: 'Fleet traffic candidate detected; officer review required', actor: 'Demo fleet observations' }] };
-  for (const issue of Object.values(issues)) issue.lastSeen = formatDemoDate(issue.observations?.at(-1)?.observedAt || demoDate(issue.lastSeen));
-  return structuredClone(state);
+  for (const issue of Object.values(issues)) issue.lastSeen = issue.observations?.at(-1)?.observedAt || demoDate(issue.lastSeen);
+  return anchorCityHistory(state, anchor);
 }

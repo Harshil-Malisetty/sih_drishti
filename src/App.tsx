@@ -9,6 +9,7 @@ import { BottomNavigation, LoadingState, SessionActionsProvider } from './compon
 import { ActionFeedbackProvider } from './components/ActionFeedback';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { persistRole, savedRole } from './lib/demoSession';
+import { cityStore } from './services/city';
 const PolicePages = lazy(() => import('./pages/PolicePages'));
 const MunicipalPages = lazy(() => import('./pages/MunicipalOperations'));
 const CitizenPages = lazy(() => import('./pages/CitizenPages'));
@@ -27,7 +28,7 @@ export default function App(){
 }
 
 function AppScreens(){
- const [role,setRole]=useState<WorkspaceRole|null>(savedRole);
+ const [role,setRole]=useState<WorkspaceRole|null>(()=>{const restored=savedRole();if(restored)cityStore.startBrowserSession();return restored});
  const [pendingRole,setPendingRole]=useState<WorkspaceRole|null>(null);
  const [screen,setScreen]=useState<Screen>(()=>role?'workspace':'landing');
  const [page,setPage]=useState(()=>role==='citizen'?'map':'overview');
@@ -50,7 +51,7 @@ function AppScreens(){
  },[screen]);
 
  const selectRole=(selected:WorkspaceRole)=>{setPendingRole(selected);setScreen('signin');history.pushState({screen:'signin',pendingRole:selected},'')};
- const signIn=()=>{if(!pendingRole)return;persistRole(pendingRole);setRole(pendingRole);setPage(pendingRole==='citizen'?'map':'overview');setScreen('workspace');history.replaceState({screen:'workspace'},'')};
+ const signIn=()=>{if(!pendingRole)return;cityStore.startBrowserSession();persistRole(pendingRole);setRole(pendingRole);setPage(pendingRole==='citizen'?'map':'overview');setScreen('workspace');history.replaceState({screen:'workspace'},'')};
  const backToLanding=()=>{if(history.state?.screen==='signin')history.back();else{setPendingRole(null);setScreen('landing');history.replaceState({screen:'landing'},'')}};
  const logout=()=>{persistRole(null);setConfirmLogout(false);setRole(null);setPendingRole(null);setScreen('landing');setPage('overview');history.replaceState({screen:'landing'},'')};
 
@@ -81,17 +82,16 @@ function Landing({enter}:{enter:(r:WorkspaceRole)=>void}){
  // Scope Motion to this screen, without layout/drag features or navigation delays.
  return <LazyMotion features={domAnimation} strict><m.main className="landing" initial={reduceMotion?false:'hidden'} animate="visible"><BrandHeader entrance={reveal}/>
   <section className="hero" aria-labelledby="landing-title">
-    <m.h1 id="landing-title" ref={title} tabIndex={-1} variants={reveal} custom={.04}>One fleet. A city of insights.</m.h1>
-    <m.p className="hero-summary" variants={reveal} custom={.11}>Every bus becomes an intelligent moving sensor for the city.</m.p>
+    <m.h1 id="landing-title" ref={title} tabIndex={-1} variants={reveal} custom={.04}>A clearer view of our roads.</m.h1>
+    <m.p className="hero-summary" variants={reveal} custom={.11}>Bus cameras help city teams spot road problems and keep people moving.</m.p>
    <div className="intelligence-flow" aria-label="From bus cameras to city services">
     <ol><m.li variants={reveal} custom={.18}><BusFront aria-hidden="true"/><span>Bus cameras</span></m.li><m.li variants={reveal} custom={.25}><ArrowRight aria-hidden="true"/><Cpu aria-hidden="true"/><span>Edge AI</span></m.li><m.li variants={reveal} custom={.32}><ArrowRight aria-hidden="true"/><Network aria-hidden="true"/><span>City intelligence</span></m.li></ol>
-      <m.div className="intelligence-audiences" variants={reveal} custom={.39}><span>Police</span><span>Municipal</span><span>Citizens</span></m.div>
    </div>
   </section>
    <section className="role-section" aria-labelledby="workspace-title"><div><h2 id="workspace-title">Select your workspace</h2><p className="workspace-caption">Three roles. One shared city view.</p></div>
     <div className="role-list">{roles.map(({id,label,sub,Icon})=><m.button type="button" className={`role-card role-card--${id}`} onClick={()=>enter(id)} key={id} initial={false} animate={{x:0}} whileHover={{x:reduceMotion?0:2}} whileTap={{x:reduceMotion?0:1}} transition={{type:'tween',duration:reduceMotion?0:.14,ease:'easeOut'}}><i><Icon/></i><div><strong>{label}</strong><span>{sub}</span></div><ChevronRight aria-hidden="true"/></m.button>)}</div>
   </section>
-  <footer><span>Simulated data · No account needed</span><b>Demo environment</b></footer>
+  <footer><span>Simulated data · No account needed</span><a href="/evidence/credits.html" target="_blank" rel="noreferrer">Evidence sources</a></footer>
  </m.main></LazyMotion>;
 }
 

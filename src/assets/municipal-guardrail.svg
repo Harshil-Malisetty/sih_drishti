@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
-  <rect width="800" height="450" fill="#d7e1dc"/>
-  <rect y="250" width="800" height="200" fill="#565d5a"/>
-  <path d="M40 305c170-42 265 75 405 25s230-34 330 4" fill="none" stroke="#c9cbc3" stroke-width="34"/>
-  <path d="M40 305c170-42 265 75 405 25s230-34 330 4" fill="none" stroke="#8e9691" stroke-width="5"/>
-  <g stroke="#767f7a" stroke-width="12"><path d="M125 288v130"/><path d="M350 327v91"/><path d="M590 310v108"/></g>
-  <text x="34" y="58" fill="#263735" font-family="sans-serif" font-size="24" font-weight="700">FLEET EVIDENCE · GUARDRAIL</text>
-  <text x="34" y="92" fill="#52635f" font-family="sans-serif" font-size="18">Bent rail placeholder</text>
-</svg>

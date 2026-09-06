@@ -1,24 +1,18 @@
 // Seed fixtures only. Screens/services read the normalized city store, never these exports.
 import type { Bus, Incident, PlannerRoadSegment, RoadDefect, TrafficObservation, WatchlistMatch } from '../../types';
-import evidenceRoad from '../../assets/evidence-road.svg';
-import personReference from '../../assets/person-reference.svg';
-import personDetected from '../../assets/person-detected.svg';
-import roadDefect from '../../assets/road-defect.svg';
-import potholeEvidence from '../../assets/pothole-evidence.jpg';
-import waterloggingEvidence from '../../assets/municipal-waterlogging.svg';
-import zebraCrossingEvidence from '../../assets/municipal-zebra-crossing.svg';
-import dividerEvidence from '../../assets/municipal-divider.svg';
-import signboardEvidence from '../../assets/municipal-signboard.svg';
-import guardrailEvidence from '../../assets/municipal-guardrail.svg';
-const cityFrame=evidenceRoad;
-// Replace these imports with local field photos as they become available. Records and observations below reference only this mapping.
+import { defectEvidence, evidenceSequences, policeEvidence } from './evidence';
+const evidenceRoad=policeEvidence.incident[4];
+const cityFrame=policeEvidence.vehicle[2];
+const personReference=policeEvidence.personReference;
+const personDetected=policeEvidence.person[2];
+// Compatibility names for fixture definitions; every observation is mapped below.
 export const municipalEvidenceImages={
- pothole:{early:evidenceRoad,developing:roadDefect,current:potholeEvidence},
- waterlogging:{early:evidenceRoad,recurring:roadDefect,current:waterloggingEvidence},
- zebraCrossing:{early:evidenceRoad,fading:roadDefect,current:zebraCrossingEvidence},
- divider:{early:evidenceRoad,damaged:roadDefect,current:dividerEvidence},
- signboard:{early:evidenceRoad,degraded:roadDefect,current:signboardEvidence},
- guardrail:{early:evidenceRoad,damaged:roadDefect,current:guardrailEvidence}
+ pothole:{early:evidenceSequences.pothole[0],developing:evidenceSequences.pothole[1],current:evidenceSequences.pothole[3],repair:evidenceSequences.pothole[4],verified:evidenceSequences.pothole[5]},
+ waterlogging:{early:evidenceSequences.waterlogging[0],recurring:evidenceSequences.waterlogging[1],current:evidenceSequences.waterlogging[3]},
+ zebraCrossing:{early:evidenceSequences['zebra-crossing'][0],fading:evidenceSequences['zebra-crossing'][1],current:evidenceSequences['zebra-crossing'][3]},
+ divider:{early:evidenceSequences.divider[0],damaged:evidenceSequences.divider[1],current:evidenceSequences.divider[3]},
+ signboard:{early:evidenceSequences.signboard[0],degraded:evidenceSequences.signboard[1],current:evidenceSequences.signboard[3]},
+ guardrail:{early:evidenceSequences.guardrail[0],damaged:evidenceSequences.guardrail[1],current:evidenceSequences.guardrail[3]}
 } as const;
 export const incidents:Incident[]=[
 {id:'INC-24091',type:'Potential collision observation',severity:'High',timestamp:'01 Sep 2026 · 18:42:17',location:'Anna Salai, Chennai',latitude:13.0607,longitude:80.2496,busId:'MTC-2147',route:'5E',vehicleType:'Sedan',registrationNumber:'TN XX XX 1234',registrationConfidence:94,status:'Investigating',image:evidenceRoad,detectionSource:'Onboard Edge',track:{frameCount:12,currentFrame:7,stages:[{timestamp:'18:42:09',label:'Vehicle detected',detail:'Sedan isolated in camera frame'},{timestamp:'18:42:11',label:'Vehicle tracked',detail:'Stable track established across frames'},{timestamp:'18:42:14',label:'Plate localized',detail:'Registration region isolated'},{timestamp:'18:42:15',label:'Registration extracted',detail:'TN XX XX 1234 · confidence 94%'},{timestamp:'18:42:17',label:'Alert generated',detail:'Metadata and short evidence clip uploaded'}]}},
@@ -35,6 +29,30 @@ export const defects:RoadDefect[]=[
 {id:'INF-8152',defectType:'Missing direction signboard',category:'Infrastructure',severity:'Medium',location:'Guindy Kathipara approach',latitude:13.0067,longitude:80.2206,firstSeen:'29 Aug',lastSeen:'04 Sep · 16:42',status:'Pending Verification',growthPercentage:0,detectionCount:6,route:'21G',busIds:['MTC-1038'],infrastructureCategory:'Directional signage',currentCondition:'Mounting pole visible; sign face absent',recommendedAction:'Field-verify mounting condition and install replacement sign face',maintenanceState:'Replacement pending verification',progressionTitle:'Signboard condition',interventionThreshold:58,repairStatus:'Mounting pole visible; sign face absent',image:municipalEvidenceImages.signboard.current,observations:[{day:1,date:'29 Aug',label:'Faded / obscured',detail:'Destination text was difficult to read from the approach',relativeSize:30,busId:'MTC-1038',image:municipalEvidenceImages.signboard.early,source:'Approach camera pass'},{day:3,date:'31 Aug',label:'Degraded',detail:'Sign face appeared loose and partially rotated',relativeSize:52,busId:'MTC-1038',image:municipalEvidenceImages.signboard.degraded,source:'Repeat approach pass'},{day:5,date:'02 Sep',label:'Face not visible',detail:'Only the mounting frame was visible',relativeSize:72,busId:'MTC-1038',image:municipalEvidenceImages.signboard.current,source:'Daylight verification pass'},{day:7,date:'04 Sep',label:'Missing',detail:'Repeated pass confirms the direction sign face is absent',relativeSize:84,busId:'MTC-1038',image:municipalEvidenceImages.signboard.current,source:'Verification route pass'}]},
 {id:'INF-8148',defectType:'Damaged roadside guardrail',category:'Infrastructure',severity:'Medium',location:'OMR · Thoraipakkam',latitude:12.9498,longitude:80.2412,firstSeen:'30 Aug',lastSeen:'04 Sep · 14:21',status:'Open',growthPercentage:5,detectionCount:8,route:'19B',busIds:['MTC-1830','MTC-0992'],infrastructureCategory:'Roadside restraint',currentCondition:'Bent rail projects toward the carriageway',recommendedAction:'Protect the verge and replace the deformed rail section',maintenanceState:'Corrective maintenance required',progressionTitle:'Guardrail condition',interventionThreshold:64,repairStatus:'Guardrail bent toward carriageway',image:municipalEvidenceImages.guardrail.current,observations:[{day:1,date:'30 Aug',label:'Surface impact',detail:'Fresh scrape marks visible near the central post',relativeSize:24,busId:'MTC-0992',image:municipalEvidenceImages.guardrail.early,source:'Southbound fleet pass'},{day:2,date:'31 Aug',label:'Bent section',detail:'Rail profile showed deformation toward the road',relativeSize:46,busId:'MTC-1830',image:municipalEvidenceImages.guardrail.damaged,source:'Southbound fleet pass'},{day:4,date:'02 Sep',label:'Deteriorating',detail:'Post alignment changed and the rail gap increased',relativeSize:66,busId:'MTC-0992',image:municipalEvidenceImages.guardrail.current,source:'Repeat verification pass'},{day:6,date:'04 Sep',label:'Maintenance required',detail:'Deformed edge remains exposed beside live traffic',relativeSize:82,busId:'MTC-1830',image:municipalEvidenceImages.guardrail.current,source:'Afternoon route pass'}]},
 {id:'DEF-8141',defectType:'School-crossing pedestrian risk',category:'Pedestrians',severity:'High',location:'Adyar School Zone',latitude:13.0065,longitude:80.2572,firstSeen:'18 Aug',lastSeen:'01 Sep · 15:04',status:'Pending Verification',growthPercentage:8,detectionCount:7,route:'70V',busIds:['MTC-0991'],infrastructureCategory:'School-zone safety',currentCondition:'Crossing guard absent during the afternoon dismissal window',recommendedAction:'Verify staffing and deploy temporary crossing control',maintenanceState:'Field verification required',progressionTitle:'School-crossing risk',interventionThreshold:60,repairStatus:'Crossing guard not observed at 15:04',image:municipalEvidenceImages.zebraCrossing.current,observations:[{day:1,date:'18 Aug',label:'Managed crossing',detail:'Crossing guard present during the afternoon dismissal window',relativeSize:18,busId:'MTC-0991',image:municipalEvidenceImages.zebraCrossing.early,source:'School-route pass'},{day:5,date:'22 Aug',label:'Intermittent coverage',detail:'No crossing control visible on one of two repeat passes',relativeSize:42,busId:'MTC-0991',image:municipalEvidenceImages.zebraCrossing.fading,source:'Repeat school-route pass'},{day:10,date:'27 Aug',label:'Unmanaged movement',detail:'Children entered the crossing without a visible guard',relativeSize:68,busId:'MTC-0991',image:municipalEvidenceImages.zebraCrossing.current,source:'Dismissal-window pass'},{day:15,date:'01 Sep',label:'Verification required',detail:'Crossing guard again absent at 15:04 during active pedestrian movement',relativeSize:84,busId:'MTC-0991',image:municipalEvidenceImages.zebraCrossing.current,source:'Afternoon verification pass'}]}];
+// Attach frame-level media while preserving IDs, timing, chart values and store architecture.
+for (const incident of incidents) {
+ if (incident.id==='INC-24088') incident.image=policeEvidence.motorcycle;
+ if (incident.id==='INC-24071') incident.image=policeEvidence.obstruction;
+ if (incident.track) incident.track.stages=incident.track.stages.map((stage,index)=>({...stage,image:policeEvidence.incident[index]}));
+ if (incident.id==='INC-24091') incident.plateImage=policeEvidence.plate;
+}
+for (const match of watchlist) {
+ const sequence=match.subjectType==='Missing Person'?policeEvidence.person:policeEvidence.vehicle;
+ match.image=sequence[2];
+ match.referenceImage=match.subjectType==='Missing Person'?policeEvidence.personReference:policeEvidence.vehicleReference;
+ if (match.subjectType==='Missing Person') match.subjectName='MP-0241 · Fictional demo person';
+ match.observations=match.observations?.map((observation,index)=>({...observation,image:sequence[index]}));
+}
+for (const defect of defects) {
+ const sequence=defectEvidence[defect.id as keyof typeof defectEvidence];
+ defect.observations=defect.observations?.map((observation,index)=>({...observation,image:sequence[index]}));
+ defect.image=defect.observations?.at(-1)?.image||defect.image;
+ if(defect.id==='DEF-8301'&&defect.observations) {
+  defect.observations[2].label='Degrading surface';
+  defect.observations[2].detail='Repeated observations indicate spreading asphalt damage';
+  defect.observations[3].label='High-risk pothole';
+ }
+}
 export const traffic:TrafficObservation[]=[
 {id:'TR-1',location:'Gemini Flyover to Thousand Lights',road:'Anna Salai',vehicleCount:184,densityLevel:'Heavy',averageSpeed:18,timestamp:'18:44',trend:'Increasing',mapX:55,mapY:38,recommendedAction:'Use Route B to avoid the congested segment'},
 {id:'TR-2',location:'Madhya Kailash Junction',road:'OMR',vehicleCount:226,densityLevel:'Severe',averageSpeed:11,timestamp:'18:43',trend:'Increasing',mapX:72,mapY:65,recommendedAction:'Allow extra time or use an alternate road'},

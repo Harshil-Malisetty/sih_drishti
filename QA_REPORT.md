@@ -1,6 +1,29 @@
-# Drishti final polish and functional-integrity pass
+# Drishti workflow, fleet and session-time update
 
-Date: 5 September 2026. This section records the **current pass**. The previous refinement report is retained below as historical evidence, not as newly executed coverage.
+Date: 6 September 2026. This is the current pass; all reports below are historical.
+
+## Current changes
+
+- Landing headline: “A clearer view of our roads.” Removed the redundant Police / Municipal / Citizens audience row.
+- First workspace entry anchors historical events to the session time, including restored-role entry. New actions use their actual execution time with a millisecond ordering tie-break. Role switches preserve work; reload creates a fresh session. Historical ages stay intact, planned future windows remain future, and demo data is not represented as live telemetry.
+- Police map shows all **10 reporting buses**, matching its banner, including separately selectable co-located buses.
+- Municipal work uses **Assign team → Fix issue → Admin check → Done**. Police response uses **Send team → Respond → Supervisor → Done**. Combined actions are atomic, keep original audit records, and retain separate field submission and independent review/rework stages.
+- Plain-language explanations and current ownership replace prominent baseline ratios and repeated status fields. Evidence and full activity logs remain available in disclosures.
+- Dashboard event rows use decorative category SVG scenes; actual evidence/photos remain in details with provenance. Removed the municipal fleet observation coverage bar chart, not the planning chart.
+- Citizen receipts and departmental report inboxes show submission times.
+
+## Validation
+
+- Typecheck, production build and whitespace checks passed.
+- **176 tests across 14 files passed**, covering session/year boundaries, real-time commands, fleet parity, dashboard artwork, timestamp formatting, atomic handoffs, review returns, evidence retention, emergency guards and workflow presentation.
+- Production-preview browser checks at desktop and **390×844**: landing copy/audience removal; all 10 fleet markers selectable by keyboard; police full response including follow-up and returned review; municipal full repair including returned review; both approval/closure paths; role-switch persistence; citizen route receives the police follow-up; citizen no-photo report/receipt. No horizontal overflow or visible workflow errors in those checks.
+- This remains a simulated, in-memory demo. Real staff authentication, live bus feeds and persistent operational storage are not introduced.
+
+---
+
+# Historical: final polish and functional-integrity pass
+
+Date: 5 September 2026. This section records a **previous pass** and is retained as historical evidence, not as newly executed coverage.
 
 ## Current result
 

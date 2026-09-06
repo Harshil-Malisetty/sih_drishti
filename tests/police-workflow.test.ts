@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createCitySeed } from '../src/data/demo/citySeed';
 import { createCityStore } from '../src/domain/cityStore';
+import { formatDemoTimestamp } from '../src/domain/time';
 import { selectAssignment, selectCitizenContext, selectPlannerRoads, selectPoliceAssignments, selectPoliceSummary, selectTraffic, selectTrafficAnomalies, selectWatchlist } from '../src/domain/selectors';
 import { expectIntegrity, expectRejected, resolutionCommand } from './helpers';
 
@@ -32,7 +33,7 @@ describe('incident assignment and watchlist projections', () => {
     const command = { type: 'decideMatch', matchId, decision } as const;
     const decided = store.dispatch(command);
     const match = selectWatchlist(decided).find(item => item.id === matchId)!;
-    expect(match).toMatchObject({ status: decision, location: 'Guindy', timestamp: '12:06', busId: 'MTC-2014', route: '21G', confidence: 89 });
+    expect(match).toMatchObject({ status: decision, location: 'Guindy', timestamp: formatDemoTimestamp('2026-09-05T12:06:00+05:30'), busId: 'MTC-2014', route: '21G', confidence: 89 });
     expect(match.observations).toHaveLength(3);
     expect(selectPoliceSummary(decided).possibleMatches).toBe(before - 1);
     const events = selectPoliceSummary(decided).activity.filter(item => item.id.startsWith(`match-${matchId}-`));

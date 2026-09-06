@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCitySeed } from '../src/data/demo/citySeed';
+import { formatDemoTime } from '../src/domain/time';
 import { selectCitizenAlerts, selectCitizenContext, selectCitizenRoute, selectIssues, selectPoliceAssignments, selectWatchlist } from '../src/domain/selectors';
 import { cityStore } from '../src/services/city';
 import { analyticsService, citizenService, demoService, incidentsService, mapService, municipalService, policeTrafficService, trafficService, watchlistService, workflowService } from '../src/services';
@@ -92,7 +93,7 @@ describe('services share the one city store', () => {
     expect((await trafficService.getSegment('TR-1'))?.vehicleCount).toBe(60);
     expect((await trafficService.getTrafficData()).find(item => item.id === 'TR-1')?.densityLevel).toBe('Free');
     expect((await citizenService.getMapData()).traffic.find(item => item.id === 'TR-1')?.vehicleCount).toBe(60);
-    expect((await trafficService.getObservations()).find(item => item.id === observation.id)).toEqual(observation);
+    expect((await trafficService.getObservations()).find(item => item.id === observation.id)).toEqual({ ...observation, timestamp: formatDemoTime(observation.observedAt) });
     await workflowService.reviewResolution(review.id, 'Verified', 'Admin', 'Flow restored');
     await policeTrafficService.close(dispatch.id, 'Admin');
     expect((await policeTrafficService.getAnomalies())[0]).toMatchObject({ status: 'Closed', dispatch: { stage: 'Closed' } });
