@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BusFront,
   CalendarCheck,
   Construction,
+  Check,
   MapPin,
+  Search,
   X,
 } from "lucide-react";
 import { useCityData } from "../services/useCityData";
@@ -43,6 +43,7 @@ import { MunicipalReportInbox } from "../components/CitizenReports";
 import { useOperation } from "../components/operations";
 import { formatDemoDate, formatDemoTime } from "../domain/time";
 import { EvidenceCredit, EvidenceImage } from "../components/EvidenceMedia";
+import { PlannerMap, type PlannerCamera } from "../components/PlannerMap";
 
 type View =
   | { kind: "detail" | "lifecycle"; id: string }
@@ -72,6 +73,7 @@ export default function MunicipalOperations({
   >({});
   const [planningRoad, setPlanningRoad] = useState(plannerRoadSegments[0].id);
   const [planningDuration, setPlanningDuration] = useState("8 weeks");
+  const [planningCamera, setPlanningCamera] = useState<PlannerCamera>();
   const open = (view: View) => {
     history.replaceState({ municipalViews: stack, primaryPage: page }, "");
     const next = [...stack, view];
@@ -158,6 +160,8 @@ export default function MunicipalOperations({
         {page === "planning" && (
           <Planning
             selected={planningRoad}
+            camera={planningCamera}
+            onCameraChange={setPlanningCamera}
             duration={planningDuration}
             onRoad={setPlanningRoad}
             onDuration={setPlanningDuration}
@@ -592,6 +596,8 @@ function MunicipalMap({
 
 function Planning({
   selected,
+  camera,
+  onCameraChange,
   duration,
   onRoad,
   onDuration,
@@ -599,6 +605,8 @@ function Planning({
   busy,
 }: {
   selected: string;
+  camera?: PlannerCamera;
+  onCameraChange: (camera: PlannerCamera) => void;
   duration: string;
   onRoad: (id: string) => void;
   onDuration: (value: string) => void;
@@ -606,34 +614,42 @@ function Planning({
   busy: boolean;
 }) {
   const { plannerRoadSegments } = useCityData();
+  const [query, setQuery] = useState('');
+  const locations = plannerRoadSegments.map((road, index) => ({ road, number: index + 1 }));
+  const matching = locations.filter(({ road }) => `${road.name} ${road.busRoutes.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
   const road =
     plannerRoadSegments.find((segment) => segment.id === selected) ||
     plannerRoadSegments[0];
   return (
     <div className="page planning-page">
       <PageIntro
-        eyebrow="MAP-FIRST NETWORK SCENARIO"
+        eyebrow="MUNICIPAL PLANNING"
         title="Urban Planning & What-If"
+        text="Choose a corridor. See how a closure could affect nearby roads."
       />
-      <div className="planning-instruction">
-        <strong>Select a road on the map</strong>
-        <span>Tap a corridor to configure its closure</span>
-      </div>
-      <ScenarioMap selected={selected} onSelect={onRoad} />
-      <section className="selected-road">
-        <span>SELECTED ROAD</span>
-        <strong>{road.name}</strong>
-        <small>
-          {road.baselineLevel} traffic · {road.baselineMinutes} min baseline ·{" "}
-          {road.observedPasses.toLocaleString()} observed passes
-        </small>
+      <PlannerMap locations={locations} selected={selected} onSelect={id => { onRoad(id); setQuery(''); }} disabled={busy} camera={camera} onCameraChange={onCameraChange}/>
+      <section className="planner-road-picker" aria-labelledby="planner-roads-title">
+        <div className="planner-section-heading"><h2 id="planner-roads-title">Choose a corridor</h2><span>{plannerRoadSegments.length} roads</span></div>
+        <label className="planner-search"><Search aria-hidden="true"/><input type="search" aria-label="Find a road or bus route" placeholder="Find a road or bus route" value={query} onChange={event => setQuery(event.target.value)}/></label>
+        <div className="planner-road-list" role="group" aria-label="Road corridors" aria-busy={busy}>
+          {matching.map(({ road: segment, number }) => <button type="button" key={segment.id} className="planner-road-option" aria-pressed={segment.id === selected} disabled={busy} onClick={() => onRoad(segment.id)}>
+            <span className="planner-road-number" aria-hidden="true">{String(number).padStart(2, '0')}</span>
+            <span className="planner-road-copy"><strong>{segment.name}</strong><small>{segment.baselineLevel} traffic · {segment.baselineMinutes} min baseline</small></span>
+            {segment.id === selected && <Check aria-hidden="true"/>}
+          </button>)}
+          {!matching.length && <p className="planner-empty" role="status">No corridors found. Try a road name or bus route.</p>}
+        </div>
       </section>
-      <Surface className="form">
-        <label>Road corridor<select value={selected} onChange={event => onRoad(event.target.value)} disabled={busy}>{plannerRoadSegments.map(segment => <option value={segment.id} key={segment.id}>{segment.name}</option>)}</select></label>
+      <Surface className="form planner-closure-form">
+        <div className="planner-selection" role="status" aria-live="polite">
+          <span>Closure on</span><strong>{road.name}</strong>
+          <small>{road.observedPasses.toLocaleString()} observed passes · Routes {road.busRoutes.join(', ')}</small>
+        </div>
         <label>
-          Closure / construction duration
+          Full closure duration
           <select
             value={duration}
+            disabled={busy}
             onChange={(event) => onDuration(event.target.value)}
           >
             <option>3 days</option>
@@ -642,124 +658,12 @@ function Planning({
             <option>4 months</option>
           </select>
         </label>
+        <p className="planner-draft-note">A private what-if. Nothing is published until you review and approve it.</p>
         <button className="primary full" onClick={run} disabled={busy}>
-          <Construction /> Run simulation
+          <Construction /> {busy ? 'Running simulation…' : 'Run simulation'}
         </button>
       </Surface>
     </div>
-  );
-}
-function ScenarioMap({
-  selected,
-  onSelect,
-  simulation,
-}: {
-  selected: string;
-  onSelect?: (id: string) => void;
-  simulation?: PlannerSimulation;
-}) {
-  const { plannerRoadSegments } = useCityData();
-  const host = useRef<HTMLDivElement>(null),
-    map = useRef<L.Map | null>(null),
-    layer = useRef<L.LayerGroup | null>(null);
-  const fittedGeometry = useRef('');
-  const [tileError, setTileError] = useState(false);
-  useEffect(() => {
-    if (!host.current || map.current) return;
-    map.current = L.map(host.current, { zoomControl: false, zoomAnimation: false }).setView(
-      [13.02, 80.239],
-      13,
-    );
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).on('tileerror', () => setTileError(true)).addTo(map.current);
-    L.control.zoom({ position: 'topright' }).addTo(map.current);
-    layer.current = L.layerGroup().addTo(map.current);
-    return () => {
-      map.current?.remove();
-      map.current = null;
-      layer.current = null;
-      fittedGeometry.current = '';
-    };
-  }, []);
-  useEffect(() => {
-    if (!layer.current || !map.current) return;
-    layer.current.clearLayers();
-    const affectedById = new Map(
-      simulation?.affected.map((item) => [item.segment.id, item]),
-    );
-    const displayedRoads = simulation ? [simulation.road, ...simulation.affected.map(item => item.segment)].filter((road, index, all) => all.findIndex(item => item.id === road.id) === index) : plannerRoadSegments;
-    displayedRoads.forEach((road) => {
-      const active = road.id === selected;
-      const affected = affectedById.get(road.id);
-      const choose = () => onSelect?.(road.id);
-      const color = active
-        ? "#a93632"
-        : affected?.severity === "Severe"
-          ? "#7a2d35"
-          : affected?.severity === "High"
-            ? "#d07727"
-            : affected
-              ? "#d5a33c"
-              : "#547069";
-      const weight = active ? 11 : affected ? 8 : 5;
-      L.polyline(road.points, {
-        color,
-        weight,
-        opacity: active || affected?.severity ? 1 : 0.58,
-        dashArray: active && simulation ? "10 7" : undefined,
-      })
-        .bindTooltip(
-          active
-            ? `${road.name} · ${simulation ? "CLOSED" : "SELECTED"}`
-            : affected
-              ? `${road.name} · ${affected.severity} · +${affected.delay} min`
-              : road.name,
-        )
-        .addTo(layer.current!);
-      if (onSelect)
-        L.polyline(road.points, { color: "#000", weight: 22, opacity: 0 })
-          .on("click", choose)
-          .addTo(layer.current!);
-      if (active) {
-        const anchor = road.points[Math.floor(road.points.length / 2)];
-        L.marker(anchor, {
-          title: road.name,
-          alt: road.name,
-          keyboard: true,
-          icon: L.divIcon({
-            className: "scenario-road-label active",
-            html: `<span>${simulation ? "CLOSED" : "SELECTED"} · ${road.name.split(" · ")[0]}</span>`,
-            iconSize: [150, 34],
-            iconAnchor: [75, 17],
-          }),
-        })
-          .on("click", choose)
-          .addTo(layer.current!);
-      }
-    });
-    const relevant = simulation
-      ? [simulation.road, ...simulation.affected.map((item) => item.segment)]
-      : plannerRoadSegments;
-    const geometryKey = JSON.stringify(relevant.map(road => [road.id, road.points]));
-    if (fittedGeometry.current !== geometryKey) {
-      map.current.fitBounds(
-        L.latLngBounds(relevant.flatMap((road) => road.points)),
-        { padding: [30, 30], maxZoom: 14, animate: false },
-      );
-      fittedGeometry.current = geometryKey;
-    }
-  }, [selected, onSelect, simulation]);
-  return (
-    <><div
-      className="scenario-map"
-      ref={host}
-      aria-label={
-        simulation
-          ? "Closed road and affected road network"
-          : "Selectable road network map"
-      }
-    />{tileError && <p className="journey-note" role="status">Basemap unavailable. Road selection and simulation details remain available.</p>}</>
   );
 }
 function ImpactChart({ simulation }: { simulation: PlannerSimulation }) {
@@ -812,12 +716,17 @@ function Result({
   back: () => void;
   home: () => void;
 }) {
-  const { state } = useCityData();
+  const { state, plannerRoadSegments } = useCityData();
   const [showNotice, setShowNotice] = useState(true);
   const scenario = state.scenarios[scenarioId];
   if (!scenario) return <><AppHeader title="Scenario unavailable" onBack={back} onHome={home}/><main className="page">Run the simulation again after resetting the demo.</main></>;
   const simulation = selectPlannerSimulation(scenario);
   const duration = scenario.duration;
+  const numberFor = (id: string) => plannerRoadSegments.findIndex(road => road.id === id) + 1;
+  const locations = [
+    { road: simulation.road, number: numberFor(simulation.road.id), status: 'Full closure' },
+    ...simulation.affected.map(item => ({ road: item.segment, number: numberFor(item.segment.id), status: `+${item.delay} min · ${item.severity} impact` })),
+  ];
   return (
     <>
       <AppHeader
@@ -849,7 +758,8 @@ function Result({
           <p>{duration} full closure · deterministic network estimate</p>
         </section>
         <ProjectApproval scenarioId={scenarioId} />
-        <ScenarioMap selected={simulation.road.id} simulation={simulation} />
+        <PlannerMap locations={locations} selected={simulation.road.id} result/>
+        <p className="planner-result-location"><b>{String(numberFor(simulation.road.id)).padStart(2, '0')}</b> {simulation.road.name} · Full closure</p>
         <div className="scenario-compare">
           <span>
             HISTORICAL<strong>{simulation.road.baselineMinutes} min</strong>
@@ -866,6 +776,7 @@ function Result({
           <ul>
             {simulation.affected.map((item) => (
               <li key={item.segment.id}>
+                <b className="planner-impact-number">{String(numberFor(item.segment.id)).padStart(2, '0')}</b>
                 <span>
                   <strong>{item.segment.name}</strong>
                   <small>

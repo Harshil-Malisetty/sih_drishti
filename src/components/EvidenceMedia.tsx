@@ -1,9 +1,11 @@
 import { useState, type ImgHTMLAttributes } from 'react';
 import sources from '../../public/evidence/image-sources.json';
+import { fictionalPerson } from '../data/demo/fictionalPerson';
 
 const sourceByPath = new Map(sources.map(source => [source.filename, source]));
 export const getEvidenceSource = (src: string) => sourceByPath.get(src);
 export function evidenceLabel(src: string) {
+  if (src === fictionalPerson.portrait) return 'Illustrated portrait';
   const source = sourceByPath.get(src);
   return source ? 'Reference photo' : src.startsWith('data:image/') ? 'Submitted photo' : 'Unverified image';
 }
@@ -16,6 +18,12 @@ export function EvidenceImage({ src = '', alt, ...props }: ImgHTMLAttributes<HTM
 }
 
 export function EvidenceCredit({ src, additionalSources = [], note }: { src: string; additionalSources?: string[]; note?: string }) {
+  if (src === fictionalPerson.portrait) return <details className="evidence-credit">
+    <summary>Portrait details</summary>
+    <p>{fictionalPerson.description}</p>
+    <p>{fictionalPerson.note}</p>
+    {note && <p>{note}</p>}
+  </details>;
   const credits = [...new Set([src, ...additionalSources])].flatMap(path => {
     const source = sourceByPath.get(path);
     return source ? [source] : [];

@@ -188,41 +188,65 @@
 .lifecycle-evidence small { display: flex; align-items: center; gap: 4px; color: #53625d; font-size: 8px; }
 .lifecycle-evidence small svg { width: 12px; }
 
-.planning-controls {
-  margin-bottom: 0;
-  background: #edf3f0;
-}
-
-.planning-controls span {
-  line-height: 1.4;
-}
-
 .scenario-map {
   position: relative;
-  min-height: 290px;
-  background: #dbe4df;
+  height: 340px;
+  background: #e9eeeb;
+  isolation: isolate;
 }
 
-.scenario-road-label {
-  display: grid;
-  place-items: center;
-  width: 112px !important;
-  height: 34px !important;
-  border: 1px solid #315c51;
-  border-radius: 3px;
-  background: #fff;
-  box-shadow: 0 2px 8px #1d302b36;
-  color: #294b43;
-  font-size: 9px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.scenario-road-label.active {
-  border-color: #a43f38;
-  background: #a43f38;
-  color: #fff;
-}
+.planner-map-panel { overflow:hidden;border:1px solid var(--line);border-radius:6px;background:#fff; }
+.planner-map-toolbar { display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600; }
+.planner-map-toolbar button { display:flex;align-items:center;gap:6px;min-height:44px;padding:0 2px;border:0;background:transparent;color:#315c51;font-size:12px;cursor:pointer; }
+.planner-map-toolbar svg { width:16px;height:16px; }
+.planner-map-caption { display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line);font-size:11px;line-height:1.5; }
+.planner-map-caption small { margin-left:auto;color:var(--muted);font-size:10px; }
+.planner-map-key { display:inline-block;width:8px;height:8px;flex:none;border-radius:50%;background:#315c51; }
+.planner-map-key.closure-key { background:#a43f38; }
+.planner-map-key.affected-key { margin-left:10px;background:#ad762c; }
+.planner-map-error { margin:0;padding:10px 12px;background:#fff8e9;font-size:12px;line-height:1.5; }
+.planner-pin { display:grid;place-items:center;background:none;border:0; }
+.planner-pin-face { display:grid;place-items:center;width:32px;height:32px;border:1px solid #6b7f76;border-radius:50%;background:#fff;color:#334b40;box-shadow:0 1px 4px #17232126;font:700 12px/1 Inter,'Segoe UI',sans-serif; }
+.planner-pin.is-selected .planner-pin-face { background:#315c51;border:2px solid #fff;outline:1px solid #315c51;color:#fff; }
+.planner-pin.is-closure .planner-pin-face { background:#a43f38;outline-color:#a43f38; }
+.planner-pin.is-affected .planner-pin-face { color:#865914;border-color:#ad762c;background:#fff8eb; }
+.planner-pin[role=button] { cursor:pointer; }
+.planner-pin[aria-disabled=true] { cursor:wait; }
+.planner-pin:focus-visible { outline:3px solid var(--focus-ring);outline-offset:1px;border-radius:50%; }
+.planner-tooltip { border:1px solid var(--line);border-radius:3px;box-shadow:0 1px 4px #1723211a;font-size:12px; }
+.planner-road-picker { margin-top:20px; }
+.planner-section-heading { display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px; }
+.planner-section-heading h2 { margin:0;font-size:14px;font-weight:650; }
+.planner-section-heading > span { color:var(--muted);font-size:11px; }
+.planner-search { display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:4px;background:#fff;padding:0 12px; }
+.planner-search svg { width:16px;height:16px;color:var(--muted);flex:none; }
+.planner-search input { width:100%;min-width:0;min-height:44px;border:0;background:transparent;font:inherit;font-size:16px;color:var(--ink); }
+.planner-search:focus-within { outline:2px solid var(--focus-ring);outline-offset:2px; }
+.planner-search input:focus-visible { outline:none; }
+.planner-road-list { max-height:238px;overflow-y:auto;overscroll-behavior:contain;margin-top:8px;border:1px solid var(--line);border-radius:4px;background:#fff;scrollbar-width:thin; }
+.planner-road-option { display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:11px 12px;text-align:left;border:0;border-bottom:1px solid var(--line);background:#fff;cursor:pointer; }
+.planner-road-option:last-child { border-bottom:0; }
+.planner-road-option:hover { background:#f3f6f4; }
+.planner-road-option[aria-pressed=true] { background:#edf3ef;box-shadow:inset 3px 0 #315c51; }
+.planner-road-option:focus-visible { outline-offset:-3px; }
+.planner-road-number { display:grid;place-items:center;width:28px;height:28px;flex:none;border:1px solid #c9d4cd;border-radius:50%;font-size:11px;font-weight:650;color:#53665d;font-variant-numeric:tabular-nums; }
+.planner-road-option[aria-pressed=true] .planner-road-number { background:#315c51;border-color:#315c51;color:white; }
+.planner-road-copy { display:grid;gap:4px;min-width:0;flex:1; }
+.planner-road-copy strong { font-size:12px;font-weight:600;line-height:1.4; }
+.planner-road-copy small { color:var(--muted);font-size:11px;line-height:1.4; }
+.planner-road-option > svg { width:16px;height:16px;flex:none;color:#315c51; }
+.planner-empty { margin:0;padding:16px;font-size:12px;line-height:1.5;color:var(--muted); }
+.planning-page .planner-closure-form { margin-top:20px;padding:16px;gap:16px; }
+.planner-selection { display:grid;gap:5px;padding-bottom:14px;border-bottom:1px solid var(--line); }
+.planner-selection > span { font-size:11px;color:var(--muted); }
+.planner-selection strong { font-size:15px;line-height:1.4; }
+.planner-selection small { font-size:11px;line-height:1.5;color:var(--muted); }
+.planner-closure-form label { font-size:12px; }
+.planner-closure-form .planner-draft-note { margin:0;font-size:11px;line-height:1.5;color:var(--muted); }
+.planner-result-location { display:flex;align-items:center;gap:8px;margin:10px 0 16px;font-size:12px;line-height:1.5; }
+.planner-result-location b { display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:50%;color:#fff;background:#a43f38;font-size:11px; }
+.network-impact li .planner-impact-number { display:grid;place-items:center;width:28px;height:28px;border:1px solid #c6a16d;border-radius:50%;font-size:11px;color:#865914; }
+.network-impact li > span { flex:1; }
 
 .impact-chart {
   position: relative;
@@ -310,7 +334,6 @@
 }
 
 .record-action span,
-.selected-road span,
 .scenario-heading span,
 .bus-impact span,
 .data-basis span {
@@ -321,36 +344,6 @@
 
 .record-action strong { font-size: 11px; line-height: 1.45; }
 .record-action small { color: var(--muted); font-size: 9px; }
-
-.planning-instruction {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-left: 3px solid #315c51;
-  background: #edf3f0;
-}
-
-.planning-instruction strong { font-size: 11px; }
-.planning-instruction span { color: var(--muted); font-size: 9px; text-align: right; }
-.planning-page .scenario-map { min-height: 340px; }
-
-.selected-road {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  border-left: 1px solid var(--line);
-  background: #fff;
-}
-
-.selected-road strong { font-size: 13px; }
-.selected-road small { color: var(--muted); font-size: 9px; }
-.planning-page .form { margin-top: 10px; }
-.scenario-result .scenario-map { min-height: 360px; margin: 0 calc(var(--page-pad) * -1); }
 
 .simulation-notice {
   display: flex;
@@ -417,10 +410,7 @@
 .data-basis { gap: 4px; border-bottom: 0; }
 
 @media (max-width: 430px) {
-  .planning-instruction { align-items: flex-start; flex-direction: column; gap: 3px; }
-  .planning-instruction span { text-align: left; }
-  .planning-page .scenario-map { min-height: 310px; }
-  .scenario-result .scenario-map { min-height: 330px; }
+  .scenario-map { height:300px; }
   .chart-axis { gap: 2px; }
   .chart-axis span { font-size: 7px; overflow-wrap: anywhere; }
 }

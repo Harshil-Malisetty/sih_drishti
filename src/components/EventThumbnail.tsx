@@ -1,5 +1,6 @@
 import type { IssueKind } from '../types/city';
 import { completionEvidenceByKind } from '../data/demo/evidence';
+import { fictionalPerson } from '../data/demo/fictionalPerson';
 import '../styles-event-cards.css';
 
 export type EventCategory = IssueKind | 'traffic' | 'incident' | 'person' | 'vehicle' | 'project';
@@ -18,7 +19,7 @@ const phaseLabels: Record<string, string> = {
 };
 export const eventPhaseLabel = (phase: string) => phaseLabels[phase] || phase;
 
-// Local photographs listed in the photo manifest; never selected from case captures.
+// Local category references, never case captures. The person is an original illustration.
 const categoryPhotos: Record<EventCategory, string> = {
   pothole: '/evidence/pothole-detected.webp',
   waterlogging: '/evidence/water-persistent.webp',
@@ -30,7 +31,7 @@ const categoryPhotos: Record<EventCategory, string> = {
   'school-crossing': '/evidence/school-stage-4.webp',
   traffic: '/evidence/water-completed.webp',
   incident: '/evidence/incident-frame-4.webp',
-  person: '/evidence/person-reference.webp',
+  person: fictionalPerson.portrait,
   vehicle: '/evidence/vehicle-reference.webp',
   project: '/evidence/pothole-repair.webp',
 };

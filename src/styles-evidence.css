@@ -1,3 +1,4 @@
+.watchlist-person-name { margin:8px 0;font-size:14px;font-weight:600; }
 /* Evidence clarity only; existing Drishti palette, density and navigation stay intact. */
 .evidence-context { margin: 10px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .evidence-credit { margin: 4px 0 12px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }

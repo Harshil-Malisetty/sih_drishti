@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="600" viewBox="0 0 480 600" role="img" aria-labelledby="title desc">
+  <title id="title">Nila Raman — original fictional character portrait</title>
+  <desc id="desc">An illustrated Tamil woman with dark hair, a blue kurta and small gold earrings. This is an invented character, not a photograph or a depiction of a real person.</desc>
+  <defs>
+    <linearGradient id="back" x2="0" y2="1"><stop stop-color="#e7e2d9"/><stop offset="1" stop-color="#cbc9bf"/></linearGradient>
+    <linearGradient id="skin" x1="0" x2="1" y2=".4"><stop stop-color="#a96e4f"/><stop offset=".45" stop-color="#bb805d"/><stop offset="1" stop-color="#a4674c"/></linearGradient>
+    <linearGradient id="neck" x2=".8" y2="1"><stop stop-color="#855239"/><stop offset="1" stop-color="#b67a55"/></linearGradient>
+    <linearGradient id="cloth" x1="0" x2="1" y2="1"><stop stop-color="#3f656c"/><stop offset="1" stop-color="#243f49"/></linearGradient>
+    <radialGradient id="cheek"><stop stop-color="#c18a68" stop-opacity=".6"/><stop offset="1" stop-color="#c18a68" stop-opacity="0"/></radialGradient>
+  </defs>
+  <path fill="url(#back)" d="M0 0h480v600H0z"/>
+  <ellipse cx="241" cy="586" rx="205" ry="22" fill="#59655f" opacity=".09"/>
+  <path d="M145 161c-5-71 30-104 91-106 65-3 102 34 105 103l-2 145c18 22 21 63-2 87H143c-22-24-19-57-4-81z" fill="#272523"/>
+  <path d="M193 328l-5 68-40 20 42 83h102l43-83-46-20-7-69z" fill="url(#neck)"/>
+  <path d="M54 600l12-96c5-37 35-70 72-84l48-21c13 37 89 40 108-1l49 22c41 17 67 45 72 84l12 96z" fill="url(#cloth)"/>
+  <path d="M151 414c15 23 29 66 35 186h-46c-2-89-18-139-27-166z" fill="#ab8771"/>
+  <path d="M153 416c11 36 18 102 18 184" fill="none" stroke="#d3bda7" stroke-width="3" opacity=".6"/>
+  <path d="M185 401c6 25 24 39 53 39s49-16 57-40" fill="none" stroke="#7c9696" stroke-width="3"/>
+  <path d="M238 440v112" fill="none" stroke="#213a41" stroke-width="3"/>
+  <g fill="#a5ac9f"><circle cx="240" cy="462" r="2.8"/><circle cx="240" cy="487" r="2.8"/><circle cx="240" cy="512" r="2.8"/></g>
+  <path d="M102 500l-9 100m281-100 10 100" stroke="#203940" stroke-width="3" opacity=".45"/>
+  <ellipse cx="153" cy="251" rx="17" ry="31" fill="#9d6246"/>
+  <ellipse cx="321" cy="251" rx="17" ry="31" fill="#9d6246"/>
+  <path d="M154 174c0-48 37-83 83-83 49 0 86 35 86 84l-7 110c-4 49-37 88-78 91-42-3-75-44-80-91z" fill="url(#skin)"/>
+  <ellipse cx="191" cy="280" rx="38" ry="31" fill="url(#cheek)"/>
+  <ellipse cx="284" cy="280" rx="34" ry="31" fill="url(#cheek)"/>
+  <path d="M150 224c-9-35-15-91 16-119 20-22 48-32 71-29 35-5 66 13 82 38 18 29 15 64 3 111l-5-54c-37-7-62-26-78-48-20 27-44 40-80 51z" fill="#292622"/>
+  <path d="M239 85v39" stroke="#a87455" stroke-width="2"/>
+  <g fill="none" stroke="#484039" stroke-width="2" opacity=".65">
+    <path d="M225 87c-27 7-52 27-61 62"/><path d="M216 83c-36 7-66 30-68 69"/>
+    <path d="M250 87c26 12 48 32 62 59"/><path d="M262 87c29 12 51 40 58 69"/>
+  </g>
+  <path d="M175 218c12-10 29-12 43-5m39 0c14-7 31-5 43 5" fill="none" stroke="#3c2b25" stroke-width="5" stroke-linecap="round"/>
+  <path d="M173 237c13-12 31-12 44 0-14 8-29 8-44 0m83 0c13-12 31-12 44 0-14 8-29 8-44 0" fill="#d7bfa4"/>
+  <g fill="#302720"><ellipse cx="197" cy="236" rx="7" ry="8"/><ellipse cx="278" cy="236" rx="7" ry="8"/></g>
+  <g fill="#efe3d0"><circle cx="199" cy="234" r="1.7"/><circle cx="280" cy="234" r="1.7"/></g>
+  <path d="M173 237c13-12 31-12 44 0m39 0c13-12 31-12 44 0" fill="none" stroke="#50372b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M232 239c-1 15-5 29-10 41 7 8 19 8 29 2" fill="none" stroke="#895338" stroke-width="2" stroke-linecap="round"/>
+  <path d="M228 283c7 4 15 4 21 0" stroke="#cf9972" stroke-width="2" fill="none"/>
+  <path d="M213 315c9-2 15-7 24-3 9-4 16 1 25 3-8 13-37 16-49 0" fill="#895047"/>
+  <path d="M214 315c16 3 31 3 47 0" stroke="#673e35" stroke-width="1.5" fill="none"/>
+  <path d="M226 325c7 2 16 2 22-1" stroke="#b47760" stroke-width="2" fill="none"/>
+  <ellipse cx="237" cy="200" rx="3.3" ry="4" fill="#80413b"/>
+  <g fill="#c6a263" stroke="#846037" stroke-width="1"><circle cx="151" cy="279" r="5"/><circle cx="323" cy="279" r="5"/></g>
+  <path d="M192 398c15 17 31 26 46 27s35-9 51-27" fill="none" stroke="#b39a60" stroke-width="1.5"/>
+</svg>

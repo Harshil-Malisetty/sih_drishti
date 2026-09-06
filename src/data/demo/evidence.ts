@@ -1,7 +1,9 @@
 import type { IssueKind } from '../../types/city';
+import { fictionalPerson } from './fictionalPerson';
 const asset = (name: string) => `/evidence/${name}.webp`;
 
-// All assets are Indian reference photographs. These scenario attachment slots
+// Documentary assets are Indian reference photographs; the person uses an original illustration.
+// These scenario attachment slots
 // do not establish source capture dates or successive real-world sightings.
 export const evidenceSequences = {
   pothole: ['pothole-detected', 'pothole-observed', 'pothole-degrading', 'pothole-high-risk', 'pothole-repair', 'pothole-verified'].map(asset),
@@ -28,8 +30,8 @@ export const policeEvidence = {
   obstruction: asset('road-debris'),
   vehicle: [1, 2, 3].map(n => asset(`vehicle-pass-${n}`)),
   vehicleReference: asset('vehicle-reference'),
-  person: [1, 2, 3].map(n => asset(`person-pass-${n}`)),
-  personReference: asset('person-reference'),
+  person: Array.from({ length: 3 }, () => fictionalPerson.portrait),
+  personReference: fictionalPerson.portrait,
 };
 export const completionEvidenceByKind: Record<IssueKind, string> = {
   pothole: asset('pothole-verified'),
