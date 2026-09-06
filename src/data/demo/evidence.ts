@@ -1,8 +1,8 @@
 import type { IssueKind } from '../../types/city';
 const asset = (name: string) => `/evidence/${name}.webp`;
 
-// Every entry is independently sourced or purpose-built. Never reinterpret a
-// damaged-surface photo as a repair, or one frame as multiple observations.
+// All assets are Indian reference photographs. These scenario attachment slots
+// do not establish source capture dates or successive real-world sightings.
 export const evidenceSequences = {
   pothole: ['pothole-detected', 'pothole-observed', 'pothole-degrading', 'pothole-high-risk', 'pothole-repair', 'pothole-verified'].map(asset),
   waterlogging: ['water-pooling', 'water-recurring', 'water-spreading', 'water-persistent'].map(asset),

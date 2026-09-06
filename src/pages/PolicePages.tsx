@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, BusFront, CheckCircle2, LocateFixed, ShieldCheck, Siren } from 'lucide-react';
+import { ArrowRight, BusFront, CheckCircle2, LocateFixed, Siren } from 'lucide-react';
 import { IncidentCard, WatchlistCard } from '../components/cards';
 import { BottomSheet } from '../components/MapView';
 import { PoliceMapView, type PoliceGeoMarker, type PoliceMapCamera } from '../components/PoliceMapView';
@@ -171,8 +171,8 @@ function IncidentDetail({id,assignment,onBack,onMap,onEvidence,onAssign}:{id:str
   <div className="title-row"><div><h1>{x.type}</h1><p>{x.location} · {formatDemoDate(x.observedAt)}</p></div><SeverityBadge value={x.severity}/></div>
   {x.citizenReportId ? <Surface><p>Citizen report · {x.citizenReportId}</p><p>{x.citizenDescription}</p><p className="operation-meta">Reporter-selected corridor; requires officer assessment. No fleet detection or vehicle identification.</p></Surface> : <Surface className="facts"><div><span>Observed by</span><strong>{x.busId}</strong></div><div><span>Route</span><strong>{x.route}</strong></div><div><span>Vehicle</span><strong>{x.vehicleType}</strong></div><div><span>Plate</span><strong>{hasRegistration(x)?x.registrationNumber:'Not available'}</strong></div></Surface>}
   {assignment&&<div className="assignment-status"><CheckCircle2/><div><span>INVESTIGATION ASSIGNED</span><strong>{assignment.officer} · {assignment.team}</strong></div></div>}
-  <SectionHeader title="Evidence"/>{x.image ? <><button className="evidence-preview" onClick={onEvidence}><EvidenceImage src={x.image} alt={x.citizenReportId?'Citizen-submitted photo':'Illustrative traffic observation'}/><span>Review evidence</span><ArrowRight/></button><EvidenceCredit src={x.image}/></> : <p className="operation-meta">No photo attached. The report description is available above.</p>}
-  <Surface className="operational-flow"><SectionHeader title="Incident progression"/><OperationalTimeline incident={x}/></Surface>
+  <SectionHeader title="Evidence"/>{x.image ? <><button className="evidence-preview" onClick={onEvidence}><EvidenceImage src={x.image} alt={x.citizenReportId?'Citizen-submitted photo':'Traffic reference photo'}/><span>Review evidence</span><ArrowRight/></button>{!x.citizenReportId&&<p className="evidence-context">Reference photos · demo timeline</p>}<EvidenceCredit src={x.image} note="Conceptual demo timeline, not camera captures or analysis of the source photos. Location, vehicle, registration and event times are scenario data, not facts about the photograph."/></> : <p className="operation-meta">No photo attached. The report description is available above.</p>}
+  <Surface className="operational-flow"><SectionHeader title={x.citizenReportId?'Incident progression':'Conceptual demo timeline'}/><OperationalTimeline incident={x}/></Surface>
     {x.resolvedAt&&<p className="operation-meta">Resolved {formatDemoDate(x.resolvedAt)} · {x.resolutionSummary}</p>}
     <EmergencyDispatchPanel event={{kind:'incident',id}} actor="Police operator"/>
   {x.citizenReportId&&x.status==='Investigating'&&<Surface className="operation-panel"><h2>Officer clearance</h2><p className="operation-meta">Record the assessed outcome. This demo action removes the public obstruction warning; it does not dispatch a real response.</p><div className="operation-form"><label>Clearance note<textarea value={clearance} onChange={event=>setClearance(event.target.value)} maxLength={1000} disabled={busy}/></label><button className="primary full" disabled={busy||!clearance.trim()} onClick={()=>run(()=>incidentsService.resolveCitizenReport(id,'Police operator',clearance),'Officer clearance recorded.')}>Record cleared obstruction</button>{error&&<p role="alert">{error}</p>}</div></Surface>}
@@ -197,18 +197,19 @@ function EvidenceView({id,onBack}:{id:string;onBack:()=>void}){
  const [selectedFrame,setSelectedFrame]=useState<number>();
  const x=incidents.find(item=>item.id===id);
  if(!x)return <MissingRecord id={id} onBack={onBack}/>;
- const stages=x.track?.stages||[];
+ const stages=x.citizenReportId?[]:x.track?.stages||[];
  const frameIndex=Math.min(selectedFrame??stages.length-1,stages.length-1);
  const frame=stages[frameIndex];
  const image=frame?.image||x.image;
  return <div className="police-workflow"><AppHeader title="Evidence" subtitle={x.id} onBack={onBack}/><main className="page detail"><h1>{x.type}</h1>
-  <div className="evidence"><EvidenceImage src={image} alt={frame?`${frame.label} — synthetic demonstration frame`:'Illustrative road observation'}/></div>
-  <EvidenceCredit src={image}/>
+  <div className="evidence"><EvidenceImage src={image} alt={x.citizenReportId?'Citizen-submitted photo':'Traffic reference photo'}/></div>
+  {!x.citizenReportId&&<p className="evidence-context">Reference photos · demo timeline</p>}
+  <EvidenceCredit src={image} additionalSources={stages.flatMap(stage=>stage.image?[stage.image]:[])} note="Conceptual processing stages and times are demo history, not an eight-second camera sequence or analysis performed on these photos. The photos do not establish this incident, fault, identity or registration."/>
   {frame&&<p className="evidence-context" aria-live="polite"><strong>{formatDemoDate(demoDate(frame.timestamp,x.observedAt))} · {frame.label}</strong><br/>{frame.detail}</p>}
-  {stages.length>0&&<div className="evidence-frame-picker" aria-label="Camera processing stages">{stages.map((stage,index)=><button key={stage.timestamp} aria-pressed={index===frameIndex} onClick={()=>setSelectedFrame(index)}>{stage.image&&<EvidenceImage src={stage.image} alt="" loading="lazy"/>}<strong>{stage.label}</strong><small>{formatDemoDate(demoDate(stage.timestamp,x.observedAt))}</small></button>)}</div>}
-  {x.plateImage&&<figure className="plate-evidence"><EvidenceImage src={x.plateImage} alt={`Synthetic number plate region reading ${x.registrationNumber}`}/><figcaption>OCR demonstration · {x.registrationNumber} · fictional registration, not live recognition</figcaption><EvidenceCredit src={x.plateImage}/></figure>}
-  <Surface className="facts"><div><span>Time</span><strong>{formatDemoTime(x.observedAt)}</strong></div><div><span>Location</span><strong>{x.location}</strong></div><div><span>Vehicle</span><strong>{x.vehicleType}</strong></div><div><span>Plate confidence</span><strong>{hasRegistration(x)?`${x.registrationConfidence}%`:'Not available'}</strong></div></Surface>
-  <Surface className="operational-flow"><SectionHeader title="Event timeline"/><OperationalTimeline incident={x}/></Surface>
+  {stages.length>0&&<div className="evidence-frame-picker" aria-label="Conceptual demo stages">{stages.map((stage,index)=><button key={stage.timestamp} aria-pressed={index===frameIndex} onClick={()=>setSelectedFrame(index)}>{stage.image&&<EvidenceImage src={stage.image} alt="" loading="lazy"/>}<strong>{stage.label}</strong><small>{formatDemoDate(demoDate(stage.timestamp,x.observedAt))}</small></button>)}</div>}
+  {!x.citizenReportId&&x.plateImage&&<figure className="plate-evidence"><EvidenceImage src={x.plateImage} alt="Number-plate reference photo"/><figcaption>Plate reference</figcaption><EvidenceCredit src={x.plateImage} note="Separate reference photo, not an incident crop or OCR result. The demo registration and confidence are not inferred from this plate."/></figure>}
+  <Surface className="facts"><div><span>Time</span><strong>{formatDemoTime(x.observedAt)}</strong></div><div><span>Location</span><strong>{x.location}</strong></div><div><span>Vehicle</span><strong>{x.vehicleType}</strong></div><div><span>{x.citizenReportId?'Plate confidence':'Demo plate confidence'}</span><strong>{hasRegistration(x)?`${x.registrationConfidence}%`:'Not available'}</strong></div></Surface>
+  <Surface className="operational-flow"><SectionHeader title={x.citizenReportId?'Event timeline':'Conceptual demo timeline'}/><OperationalTimeline incident={x}/></Surface>
  </main></div>;
 }
 
@@ -269,16 +270,15 @@ function MatchDetail({id,onBack}:{id:string;onBack:()=>void}){
  return <div className="police-workflow"><AppHeader title="Possible watchlist match" subtitle={x.id} onBack={onBack}/><main className="page detail">
   <div className={`warning-note ${decision?.toLowerCase()||''}`}><Siren/><div><strong>{decision||'Requires officer verification'}</strong><span>{decision==='Verified'?'Match verified for investigation.':decision==='Dismissed'?'Match dismissed and removed from the active queue.':'Confidence is not confirmation of identity.'}</span></div></div>
   <h1>{x.subjectType==='Missing Person'?'Possible missing-person match':'Possible flagged-vehicle match'}</h1>
-  <p className="evidence-context">Fictional target · synthetic scenes · no real identity or registration</p>
-  <div className="compare"><figure><EvidenceImage src={x.referenceImage} alt="Synthetic watchlist reference"/><figcaption>REFERENCE · {x.subjectName.split(' · ')[0]}</figcaption></figure><div>→</div><figure><EvidenceImage src={selectedImage} alt={`Synthetic observation at ${selected?.location||x.location}`}/><figcaption>OBSERVATION · {selectedTimestamp}</figcaption></figure></div>
-  <EvidenceCredit src={selectedImage}/>
+  <p className="evidence-context">Reference photos · demo timeline</p>
+  <div className="compare"><figure><EvidenceImage src={x.referenceImage} alt="Watchlist reference photo"/><figcaption>REFERENCE PHOTO</figcaption></figure><div>→</div><figure><EvidenceImage src={selectedImage} alt="Selected reference photo"/><figcaption>SELECTED REFERENCE</figcaption></figure></div>
+  <EvidenceCredit src={selectedImage} additionalSources={[x.referenceImage,...observations.flatMap(item=>item.image?[item.image]:[])]} note="Reference photos only. People/vehicles pictured are not missing, wanted, flagged or identified by this demo. No identity or registration is inferred from these photos. Repeated images are references, not evidence of repeated sightings. Times, confidence and map points are conceptual demo observations, not a reconstructed route. Production privacy and access controls are future work; authentication is not implemented."/>
   <ConfidenceIndicator value={selected?.confidence??x.confidence}/>
-  {x.subjectType==='Missing Person'&&<div className="privacy-note"><ShieldCheck/><span>Synthetic demo data only. Production privacy and access controls are future work; authentication is not implemented.</span></div>}
   <Surface className="facts"><div><span>Observed by</span><strong>{selected?.busId||x.busId}</strong></div><div><span>Selected location</span><strong>{selected?.location||x.location}</strong></div><div><span>Time</span><strong>{selectedTimestamp}</strong></div><div><span>Route</span><strong>{selected?.route||x.route}</strong></div></Surface>
-  {observations.length>0&&<><SectionHeader title="Fleet observation trail"/><p className="evidence-context">Select a sighting to connect its frame, bus, time and map location. Lines connect sightings; they are not a reconstructed driving route.</p><div className="evidence-trail">{observations.map((o,index)=><button key={o.id} aria-pressed={selected?.id===o.id} onClick={()=>setObservation(o.id)}>{o.image&&<EvidenceImage src={o.image} alt="" loading="lazy"/>}<span><strong>{index+1}. {o.location} · {formatDemoDate(demoDate(o.timestamp))}</strong><small>{o.busId} · Route {o.route}</small><small>{o.confidence===undefined?'Confidence unavailable':`${o.confidence}% possible match`}</small></span><ArrowRight aria-hidden="true"/></button>)}</div>
+  {observations.length>0&&<><SectionHeader title="Demo observation trail"/><div className="evidence-trail">{observations.map((o,index)=><button key={o.id} aria-pressed={selected?.id===o.id} onClick={()=>setObservation(o.id)}>{o.image&&<EvidenceImage src={o.image} alt="" loading="lazy"/>}<span><strong>{index+1}. {o.location} · {formatDemoDate(demoDate(o.timestamp))}</strong><small>{o.busId} · Route {o.route}</small><small>{o.confidence===undefined?'Confidence unavailable':`${o.confidence}% demo confidence`}</small></span><ArrowRight aria-hidden="true"/></button>)}</div>
   <div className="mini-map real-map"><PoliceMapView markers={markers} selected={observationId||markers.at(-1)?.id} onSelect={setObservation} onTrailSelect={setObservation} trail={points}/></div>
   {observationId&&observations.find(item=>item.id===observationId)&&<PoliceObservationDetails matchId={id} observation={observations.find(item=>item.id===observationId)!}/>}
-   <div className="trail-summary"><strong>Observed by {new Set(observations.map(item=>item.busId)).size} different buses</strong><span>Chronological sightings from the distributed fleet</span></div>
+  <div className="trail-summary"><strong>{new Set(observations.map(item=>item.busId)).size} buses</strong><span>Demo observation history</span></div>
   </>}
   {error&&<p role="alert">{error}</p>}
   {!decision&&<div className="action-row"><button className="secondary" disabled={saving} onClick={()=>decide('Dismissed')}>Dismiss match</button><button className="primary" disabled={saving} onClick={()=>decide('Verified')}>Verify match</button></div>}

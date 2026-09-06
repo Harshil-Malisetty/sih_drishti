@@ -6,7 +6,7 @@ import { workflowService } from '../services';
 import { useCityData } from '../services/useCityData';
 import { useFeedback, type ActionFeedbackInput } from './ActionFeedback';
 import '../styles-operations.css';
-import { EvidenceCredit, EvidenceImage } from './EvidenceMedia';
+import { EvidenceCredit, EvidenceImage, getEvidenceSource } from './EvidenceMedia';
 
 export function useOperation(defaultFeedback: ActionFeedbackInput = 'Action completed.') {
   const [busy, setBusy] = useState(false);
@@ -58,7 +58,10 @@ export function ResolutionReview({ event, actor }: { event: EventRef; actor: str
     <details className="submission-details" open={review.decision === 'Pending'}><summary>Team’s completion report</summary>
       <p><strong>{resolution.summary}</strong></p><p>{resolution.resultingCondition}</p>
       <p className="operation-meta">Submitted by {resolution.submittedBy} · {assignment && state.teams[assignment.teamId]?.name}<br/>{formatDemoDate(resolution.submittedAt)}</p>
-      {resolution.evidence.map(evidence => <figure className="resolution-evidence" key={evidence.id}><EvidenceImage src={evidence.image} alt={evidence.description}/><figcaption>{evidence.description}<br/>{formatDemoDate(evidence.capturedAt)}</figcaption><EvidenceCredit src={evidence.image}/></figure>)}
+      {resolution.evidence.map(evidence => {
+        const reference = Boolean(getEvidenceSource(evidence.image));
+        return <figure className="resolution-evidence" key={evidence.id}><EvidenceImage src={evidence.image} alt={reference ? 'Completion reference photo' : evidence.description}/><figcaption>{reference ? 'Reference photos · demo timeline' : evidence.description}<br/>{formatDemoDate(reference ? resolution.submittedAt : evidence.capturedAt)}</figcaption><EvidenceCredit src={evidence.image} note="Reference attachment, not proof of work at this site. The displayed date is the demo submission time, not the source photo date."/></figure>;
+      })}
     </details>
     {review.reviewedAt && <p className="operation-meta">{review.reviewer} · {formatDemoDate(review.reviewedAt)}<br/>{review.note}</p>}
     {review.decision === 'Pending' && <div className="operation-form">

@@ -1,6 +1,26 @@
-# Drishti workflow, fleet and session-time update
+# Drishti Indian photos and simple presentation
 
-Date: 6 September 2026. This is the current pass; all reports below are historical.
+Date: 6 September 2026. Current pass; earlier reports below are historical.
+
+## Result
+
+- All **53 bundled photo assets** now use photographs taken in India, verified using source descriptions and categories. Foreign images and retired gallery-only files were removed, not merely hidden.
+- Removed documentary galleries, source-date panels, relationship badges and long visible explanations. Restored the original compact incident, watchlist, municipal-detail and lifecycle layouts. Credits and full provenance remain inside closed **Photo credits** disclosures.
+- Photographs cover Chennai flooding/crossings, Bengaluru potholes, Kolkata collisions, Kerala maintenance, Tamil Nadu median damage, Uttarakhand barriers and other Indian references. Images illustrate the relevant category; scenario dates and states are not claims about a real same-site photographic sequence.
+- Preserved the manual landing-title edit, photo thumbnails, four-step workflows, map navigation, session times and citizen-upload handling. No synthetic image generation was reintroduced.
+
+## Checks
+
+- **212 tests across 14 files passed**, plus typecheck, production build and whitespace validation.
+- Asset audit: **53 India-tagged photos, 0 foreign entries**, matching source-location evidence, decodable WebP files, bounded sizes, matching hashes and synchronized credits.
+- Browser checks at **1280×900 and 390×844**: compact layouts, all six original lifecycle selections, Indian incident photo loading, preserved municipal assignment action, closed credit disclosures and no visible source-date panels or documentary galleries. No horizontal overflow in checked layouts.
+- Changes are local in this pass; no commit, push or Vercel deployment was performed.
+
+---
+
+# Historical: workflow, fleet and session-time update
+
+Date: 6 September 2026. This preceding workflow pass is retained as historical evidence.
 
 ## Current changes
 

@@ -54,7 +54,7 @@ New service commands (no new server endpoints are implemented):
 - `citizenService.getMobilityContext`, `recommendRoute`: derived public projections. Candidate route legs reference canonical segments; these are advisory demo candidates, not a citywide routing engine. Route-leg fractions represent the sampled portion of a corridor, not inferred geometry.
 - `roadsService`: canonical road and segment lookup; `trafficService.getObservations`: internal observation history.
 
-Commands reject invalid transitions and unknown references without partial writes. Repeated identical assignment, review, approval and dispatch requests are idempotent where applicable. Seed assets/actors are synthetic demo fixtures. Clock advance/reset helpers are demo-only controls and must not become production client authority. Authentication, ML and persistence infrastructure are not implemented; the UI includes deterministic emergency-response stages.
+Commands reject invalid transitions and unknown references without partial writes. Repeated identical assignment, review, approval and dispatch requests are idempotent where applicable. Seed actors and operational records are fictional demo data; bundled imagery is now licensed real reference photography with original source dates and no asserted link to those records. Clock advance/reset helpers are demo-only controls and must not become production client authority. Authentication, ML and persistence infrastructure are not implemented; the UI includes deterministic emergency-response stages.
 
 ## Citizen report intake (implemented locally)
 

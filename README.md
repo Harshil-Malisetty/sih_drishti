@@ -19,7 +19,14 @@ A mobile-first SIH frontend prototype that turns public transport fleets into mo
 - `src/pages` role pages
 - `backend/README.md` planned backend architecture and endpoint contracts
 
-All records are simulated demonstration data. Evidence assets are local illustrative fixtures. No live surveillance or inference service is connected.
+Operational records are simulated demonstration data. All bundled evidence images and dashboard thumbnails are **real sourced photographs**, stored locally with attribution and reuse licences. They are not captures of the fictional records. No live surveillance or inference service is connected.
+
+## Indian reference photos
+
+- All 53 bundled photo assets are taken in **India**. Locations are checked against original source captions/categories, not an Indian brand name or photographer nationality. The original compact screens, timelines and workflows are retained; there are no documentary galleries.
+- Full credits, original dates and reference-photo limitations are inside the closed **Photo credits** disclosure and [public/evidence/credits.html](public/evidence/credits.html). The timeline remains demo data; photos are not claimed to prove a single site's progression or identify pictured people/vehicles as actual matches.
+- [scripts/real-photo-selections.mjs](scripts/real-photo-selections.mjs) lists every selected photo and its Indian-location evidence. Run `node scripts/source-real-evidence.mjs` to stage photos in `/tmp/drishti-indian-photos/`; review them before using `--publish`. Publishing replaces the complete catalogue, synchronizes both manifests/credits, and removes retired photo files rather than retaining foreign leftovers.
+- The source register in [public/evidence/image-sources.json](public/evidence/image-sources.json) records location, source categories, author, licence, source URL and checksum. No generated-image fallback exists.
 
 ## Shared demo foundation
 
@@ -32,7 +39,7 @@ All records are simulated demonstration data. Evidence assets are local illustra
 - On first workspace entry (including a restored role), historical demo timestamps are anchored to the current time. Existing event ages and ordering are preserved; new actions use the browser clock, with a millisecond tie-break for simultaneous commands—not artificial minute jumps. Display times use **Asia/Kolkata**. Role switches retain the shared session; reload starts a fresh demo. There are no random traffic spikes or real live fleet measurements. Tests can inject a deterministic clock.
 - Operational screens use four visible stages. Municipal admins confirm and assign, field teams accept and work, then admins check the submission and approve/close or return it. Police retains team departure, arrival, follow-up traffic checks and a separate supervisor review. Routine handoffs are committed atomically; every original command, validation, and audit entry is preserved.
 - State survives workspace exit/re-entry in the same page. **Reload intentionally restores the seed**; `demoService.reset()` does the same. Durable/cross-tab persistence is not implemented. Existing page stacks and GIS selection/camera state remain UI-local.
-- Role entry shows a read-only fictional identity (POLICE-204, MUNICIPAL-118 or CITIZEN-032) and explicitly opens a demo workspace without credentials. It is not authentication. Citizen selectors redact internal source/team/watchlist fields; this is not a production security boundary because the browser still contains synthetic Police fixtures.
+- Role entry shows a read-only fictional identity (POLICE-204, MUNICIPAL-118 or CITIZEN-032) and explicitly opens a demo workspace without credentials. It is not authentication. Citizen selectors redact internal source/team/watchlist fields; this is not a production security boundary because the browser still contains fictional Police records.
 
 ## Citizen journeys and reports
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { createCitySeed } from '../src/data/demo/citySeed';
@@ -13,6 +13,16 @@ const registry = new Map(sources.map(source => [source.filename, source]));
 const local = (url: string) => new URL(`../public${url}`, import.meta.url);
 
 describe('evidence provenance and semantic coverage', () => {
+  it('publishes only genuine photographic assets with a synchronized credits register', () => {
+    expect(sources.every(source => source.kind === 'photo')).toBe(true);
+    const files = readdirSync(new URL('../public/evidence/', import.meta.url)).filter(file => file.endsWith('.webp')).sort();
+    expect(files).toEqual(sources.map(source => source.filename.split('/').at(-1)).sort());
+    expect(JSON.parse(readFileSync(new URL('../public/evidence/photo-sources.json', import.meta.url), 'utf8'))).toEqual(sources);
+    expect(existsSync(new URL('../public/evidence/synthetic-sources.json', import.meta.url))).toBe(false);
+    expect(existsSync(new URL('../scripts/generate-demo-evidence.mjs', import.meta.url))).toBe(false);
+    const credits = readFileSync(new URL('../public/evidence/credits.html', import.meta.url), 'utf8');
+    for (const source of sources) expect(credits).toContain(`id="${source.id}"`);
+  });
   it('has unique source entries and decodable, bounded local WebP assets with matching hashes', async () => {
     expect(registry.size).toBe(sources.length);
     for (const source of sources) {
@@ -31,7 +41,7 @@ describe('evidence provenance and semantic coverage', () => {
     }
   });
 
-  it('gives every municipal observation distinct media; the verified surface is not a defect image', () => {
+  it('retains per-observation image slots and a separate completion image mapping', () => {
     const issues = selectIssues(createCitySeed());
     for (const issue of issues) {
       const images = issue.observations!.map(observation => observation.image!);
@@ -48,23 +58,47 @@ describe('evidence provenance and semantic coverage', () => {
     expect(history).toEqual([...history].sort((a, b) => a - b));
   });
 
-  it('keeps watchlist references distinct from sightings and projects the latest frame with its metadata', () => {
+  it('uses actual reference photos without fabricating distinct sightings from duplicate image slots', () => {
     for (const match of selectWatchlist(createCitySeed())) {
       const frames = match.observations!.map(observation => observation.image!);
       expect(new Set([match.referenceImage, ...frames]).size).toBe(4);
-      [match.referenceImage, ...frames].forEach(frame => expect(registry.get(frame)?.kind).toBe('synthetic'));
+      const photos = [match.referenceImage, ...frames].map(frame => registry.get(frame)!);
+      photos.forEach(source => {
+        expect(source.kind).toBe('photo');
+        expect(source.note).toMatch(/not.*(?:missing|flagged|sightings)/i);
+        expect(source.relationship).toBe('independent-reference');
+      });
+      expect(new Set(photos.map(source => source.sha256)).size).toBe(match.subjectType === 'Missing Person' ? 1 : 2);
       expect(match.image).toBe(frames.at(-1));
       expect(match.busId).toBe(match.observations!.at(-1)!.busId);
     }
   });
 
-  it('has separate incident frames and OCR evidence, with no real target identities', () => {
+  it('uses Indian incident photos and a clearly separate Indian plate reference', () => {
     const incident = createCitySeed().incidents['INC-24091'];
     const frames = incident.track!.stages.map(stage => stage.image!);
     expect(new Set(frames).size).toBe(5);
     expect(frames).not.toContain(incident.plateImage);
-    [...frames, incident.plateImage!].forEach(frame => expect(registry.get(frame)?.kind).toBe('synthetic'));
+    [...frames, incident.plateImage!].forEach(frame => expect(registry.get(frame)?.kind).toBe('photo'));
+    frames.forEach(frame => {
+      expect(registry.get(frame)?.country).toBe('India');
+      expect(registry.get(frame)?.location).toBe('Rabindra Sadan, Kolkata');
+    });
+    expect(registry.get(incident.plateImage!)?.note).toContain('not an OCR result');
     expect(incident.registrationNumber).toBe('TN XX XX 1234');
+  });
+
+  it('contains only photographs taken in India and removes retired foreign-gallery assets', () => {
+    expect(sources).toHaveLength(53);
+    for (const source of sources) {
+      expect(source.country).toBe('India');
+      expect(source.location).toBeTruthy();
+      expect(source.locationEvidence.length).toBeGreaterThan(20);
+      expect(`${source.title} ${source.sourceDescription} ${source.sourceCategories.join(' ')}`).toMatch(/India|Chennai|Bengaluru|Kolkata|Ponnani|Kerala|Guntur|Haridwar|Uttarkashi|Kanhangad|Odisha|Cochin|Jamshedpur|Udaipur|Spiti|Adyar|Tuticorin/i);
+      expect(source.title).not.toMatch(/Wetherby|Brattleboro|Canton-Randolph|Leamington|Frankfurt|Kemistintie|Altnaharra|Japan|chiyoda|Omagh/i);
+    }
+    for (const file of ['guardrail-work-4.webp','pothole-work-prepare.webp','pothole-work-pour.webp','pothole-work-finish.webp']) expect(existsSync(new URL(`../public/evidence/${file}`, import.meta.url))).toBe(false);
+    expect(existsSync(new URL('../src/data/demo/photoSeries.ts', import.meta.url))).toBe(false);
   });
 
   it('selects completion evidence by issue type instead of reusing a car illustration', async () => {

@@ -256,7 +256,7 @@ function Overview({
           </span>
         </div>
       </div>
-      {completedExample && <button className="traffic-control-link event-scene-row" onClick={() => open(completedExample)}><EventThumbnail category={completedExample.kind}/><div className="event-copy"><strong>{completedExample.defectType} · repaired and verified</strong><small>{completedExample.observations?.length} recorded stages · view the repair history</small></div><ArrowRight aria-hidden="true"/></button>}
+      {completedExample && <button className="traffic-control-link event-scene-row" onClick={() => open(completedExample)}><EventThumbnail category={completedExample.kind} completed/><div className="event-copy"><strong>{completedExample.defectType} · repaired and verified</strong><small>{completedExample.observations?.length} recorded stages · view the repair history</small></div><ArrowRight aria-hidden="true"/></button>}
       <MunicipalTasks onOpen={openTask} />
       <section className="operations-brief event-priorities">
         <div className="geographic-pressure">
@@ -373,6 +373,7 @@ function Detail({
     );
   const latest = x.observations?.at(-1);
   const hasProgression = (x.observations?.length || 0) > 1;
+  const image = x.citizenReportId ? x.image : latest?.image || x.image;
   return (
     <>
       <AppHeader
@@ -401,17 +402,15 @@ function Detail({
         <MunicipalWorkflow issueId={id} />
         <details className="operation-panel municipal-evidence-details">
         <summary>Road evidence & observation history</summary>
-        {(latest?.image || x.image) ? <div className="road-frame">
+        {image ? <div className="road-frame">
           <EvidenceImage
-            src={latest?.image || x.image}
-            alt={`${x.defectType} latest observation`}
+            src={image}
+            alt={x.citizenReportId ? 'Citizen-submitted photo' : `${x.defectType} reference photo`}
           />
-          <span>LATEST EVIDENCE</span>
-          <em>
-            {x.citizenReportId ? `${formatDemoDate(x.lastSeen)} · Citizen photo` : `${x.lastSeen} · ${latest?.busId || x.busIds.at(-1)}`}
-          </em>
+          <span>{x.citizenReportId ? 'CITIZEN PHOTO' : 'REFERENCE PHOTO'}</span>
         </div> : <p className="operation-meta">No photo attached. Field assessment required.</p>}
-        <EvidenceCredit src={latest?.image || x.image}/>
+        {image && !x.citizenReportId && <p className="evidence-context">Reference photos · demo timeline</p>}
+        <EvidenceCredit src={image} note="Dates, conditions and fleet observations are demo history. Reference photos are not captures of this record and do not verify work at this site."/>
         {hasProgression && (
           <button className="primary full evidence-story-link" onClick={lifecycle}>
             View {x.observations?.length} stages · {x.progressionTitle?.toLowerCase() || "condition progression"}
@@ -493,7 +492,7 @@ function Lifecycle({
       />
       <main className="page detail">
         <PageIntro
-          eyebrow="FLEET-DERIVED CONDITION HISTORY"
+          eyebrow="DEMO CONDITION HISTORY"
           title={x.location}
         />
         <ObservationProgression defect={x} />
