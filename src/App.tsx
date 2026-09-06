@@ -82,7 +82,7 @@ function Landing({enter}:{enter:(r:WorkspaceRole)=>void}){
  // Scope Motion to this screen, without layout/drag features or navigation delays.
  return <LazyMotion features={domAnimation} strict><m.main className="landing" initial={reduceMotion?false:'hidden'} animate="visible"><BrandHeader entrance={reveal}/>
   <section className="hero" aria-labelledby="landing-title">
-    <m.h1 id="landing-title" ref={title} tabIndex={-1} variants={reveal} custom={.04}>A clearer view of our roads.</m.h1>
+    <m.h1 id="landing-title" ref={title} tabIndex={-1} variants={reveal} custom={.04}>Better City starting from a Better View</m.h1>
     <m.p className="hero-summary" variants={reveal} custom={.11}>Bus cameras help city teams spot road problems and keep people moving.</m.p>
    <div className="intelligence-flow" aria-label="From bus cameras to city services">
     <ol><m.li variants={reveal} custom={.18}><BusFront aria-hidden="true"/><span>Bus cameras</span></m.li><m.li variants={reveal} custom={.25}><ArrowRight aria-hidden="true"/><Cpu aria-hidden="true"/><span>Edge AI</span></m.li><m.li variants={reveal} custom={.32}><ArrowRight aria-hidden="true"/><Network aria-hidden="true"/><span>City intelligence</span></m.li></ol>
