@@ -1,6 +1,20 @@
-# Drishti Indian photos and simple presentation
+# Police jurisdiction filtering and focused civic UI refinement
 
-Date: 6 September 2026. Current pass; earlier reports below are historical.
+Date: 7 September 2026. Current pass; earlier reports below are historical.
+
+- Police jurisdiction selection applies across overview totals/activity, incident queues, traffic control, citizen intake, both watchlist categories, maps and details. The choice is retained in session storage; changing it closes stale details and restores keyboard focus to the selector. Citywide remains available.
+- The five areas are **demo corridor groupings, not official police boundaries or access controls**. Ownership is explicit by road segment. Watchlist ownership follows the latest sighting, never a source bus's current position; earlier out-of-area sightings remain labelled investigation context. Shared operational records and citywide team availability remain intact.
+- Focused follow-up: replaced the rounded jurisdiction banner with a flat typographic heading and rules. Removed icons, duplicated area summaries, operational-area counts and demo metadata from this section. The compact native selector uses an underlined treatment; selected areas show useful corridor coverage. Surrounding cards were not redesigned in this follow-up.
+- **237 tests across 17 files passed**, plus production build/TypeScript and whitespace checks.
+- Independent Chrome visual checks at **375×844, 390×844, 393×844 and 1440×1000**, for both citywide and selected-area views: no document/section overflow; 44px selector target; no section icons, gradients, shadows or rounded corners. Screenshots reviewed at all four widths.
+- Browser checks across all six scopes verified incident counts, both watchlist tabs, reporting-fleet and active-incident marker counts, empty-map states, scope changes from details, Back-history guards, reload persistence and labelled cross-area history. No uncaught page errors in the checked flows.
+- No dependencies added, commit/push or deployment performed.
+
+---
+
+# Historical: Drishti Indian photos and simple presentation
+
+Date: 6 September 2026. Historical pass.
 
 ## Result
 

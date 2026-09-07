@@ -99,11 +99,12 @@ export function createCitySeed(anchor = DEMO_START): CityState {
     'MTC-1102': 'velachery', 'MTC-1450': 'velachery', 'MTC-0991': 'adyar-school',
   };
   const incidentSegments: Record<string, string> = { 'INC-24091': 'anna', 'INC-24088': 'guindy-kathipara', 'INC-24071': 'gst-saidapet' };
+  const sightingSegments: Record<string, string> = { 'OBS-1': 'anna', 'OBS-2': 'gst-saidapet', 'OBS-3': 'guindy-kathipara', 'VEH-1': 'anna-nandanam', 'VEH-2': 'guindy-kathipara', 'VEH-3': 'velachery' };
   const state: CityState = {
     version: 1, revision: 0, now: DEMO_START, roads, roadSegments, trafficObservations,
     buses: byId(buses.map(bus => ({ ...bus, roadSegmentId: busSegments[bus.id], observedAt: DEMO_START }))),
     incidents: byId(incidents.map(incident => ({ ...structuredClone(incident), roadSegmentId: incidentSegments[incident.id], observedAt: demoDate(incident.timestamp) }))),
-    watchlist: byId(structuredClone(watchlist)), issues, departments: byId(departments), teams: byId(teams),
+    watchlist: byId(watchlist.map(match => ({ ...structuredClone(match), observations: match.observations?.map(observation => ({ ...observation, roadSegmentId: sightingSegments[observation.id] })) }))), issues, departments: byId(departments), teams: byId(teams),
     assignments: {}, resolutions: {}, reviews: {}, anomalies: {}, dispatches: {}, emergencyDispatches: {}, scenarios: {}, projects: {}, citizenReports: {},
     journey: { id: 'ROUTE-B', origin: 'Teynampet', destination: 'Guindy', current: [{ roadSegmentId: 'anna', fraction: 1 },{ roadSegmentId: 'inner-ring', fraction: 14/27 }], alternative: [{ roadSegmentId: 'cpr', fraction: 1 },{ roadSegmentId: 'inner-ring', fraction: 4/27 }], viaSegmentId: 'cpr', stops: ['Start · Teynampet','C.P. Ramaswamy Road','Guindy','Destination'] },
   };

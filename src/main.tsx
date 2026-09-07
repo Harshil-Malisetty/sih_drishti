@@ -6,5 +6,6 @@ import './styles-municipal.css';
 import './styles-refinement.css';
 import './styles-evidence.css';
 import './styles-landing.css';
+import './styles-police.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);

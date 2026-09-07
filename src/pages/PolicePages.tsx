@@ -8,18 +8,19 @@ import { EmergencyDispatchPanel } from '../components/EmergencyDispatchPanel';
 import { CitizenReportInbox } from '../components/CitizenReports';
 import { useOperation } from '../components/operations';
 import { notifyAction } from '../components/ActionFeedback';
-import { AppHeader, ConfidenceIndicator, FilterBar, MetricCard, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
-import { selectTrafficAnomalies } from '../domain/selectors';
+import { ConfidenceIndicator, FilterBar, MetricCard, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
+import { PoliceHeader as AppHeader, PoliceAreaIntro, PoliceEmptyState } from '../components/PoliceHeader';
+import { jurisdictionForSegment, segmentInJurisdiction } from '../domain/policeJurisdictions';
 import { demoDate, formatDemoDate, formatDemoTime } from '../domain/time';
 import { incidentsService, watchlistService } from '../services';
-import { useCityData } from '../services/useCityData';
+import { PoliceJurisdictionProvider, usePoliceData, usePoliceJurisdiction } from '../services/PoliceJurisdiction';
 import type { FleetObservation, Status, WatchlistMatch } from '../types';
 import type { CityIncident } from '../types/city';
 import { EvidenceCredit, EvidenceImage } from '../components/EvidenceMedia';
 import { EventThumbnail, eventPhaseLabel, type EventCategory } from '../components/EventThumbnail';
 
 type WorkflowView={kind:'incident';id:string}|{kind:'evidence';id:string}|{kind:'assignment';id:string}|{kind:'match';id:string}|{kind:'map';id:string}|{kind:'traffic';id:string};
-type Assignment=ReturnType<typeof useCityData>['assignments'][string];
+type Assignment=ReturnType<typeof usePoliceData>['assignments'][string];
 type PoliceMapRecord={id:string;type:'bus'|'incident'|'watchlist';group:'Fleet'|'Incidents'|'Watchlist';latitude:number;longitude:number;label:string;eyebrow:string;title:string;location:string};
 const isActive=(status:Status)=>!['Resolved','Closed','Verified','Dismissed'].includes(status);
 const hasRegistration=(incident:CityIncident)=>incident.registrationConfidence>0&&Boolean(incident.registrationNumber.trim())&&incident.registrationNumber!=='Not available';
@@ -28,8 +29,9 @@ const incidentCard=(incident:CityIncident)=>({...incident,timestamp:formatDemoDa
 const matchCard=(match:WatchlistMatch)=>({...match,timestamp:formatDemoDate(demoDate(match.timestamp))});
 
 function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)=>void;selected:string;onSelect:(id:string)=>void;cameras:Partial<Record<PoliceMapRecord['group'],PoliceMapCamera>>}){
- const {state,buses,incidents,watchlist}=useCityData();
- const [filter,setFilter]=useState<PoliceMapRecord['group']>(()=>buses.some(item=>item.id===selected)?'Fleet':incidents.some(item=>item.id===selected)?'Incidents':'Watchlist');
+ const {state,buses,incidents,watchlist}=usePoliceData();
+ const {jurisdiction,areaName,jurisdictionId}=usePoliceJurisdiction();
+ const [filter,setFilter]=useState<PoliceMapRecord['group']>(()=>incidents.some(item=>item.id===selected)?'Incidents':watchlist.some(item=>item.id===selected||item.observations?.some(observation=>observation.id===selected))?'Watchlist':'Fleet');
  const records=useMemo<PoliceMapRecord[]>(()=>{
   const fleet=buses.filter(bus=>bus.status==='Sensing').map(bus=>{
    const location=state.roadSegments[bus.roadSegmentId]?.name||'Location unavailable';
@@ -49,10 +51,14 @@ function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)
  const active=visible.find(item=>item.id===(selectedObservation?.parent.id||selected));
  const trail=active?.type==='watchlist'?watchlist.find(item=>item.id===active.id)?.observations?.map(item=>({id:item.id,latitude:item.latitude,longitude:item.longitude,label:`${item.busId} · ${formatDemoDate(demoDate(item.timestamp))}`})):[];
  const actionRecordId=selectedObservation?.parent.id||active?.id;
- const changeFilter=(value:string)=>{const next=value as PoliceMapRecord['group'];setFilter(next);const first=records.find(item=>item.group===next);if(first)onSelect(first.id)};
+ const changeFilter=(value:string)=>{const next=value as PoliceMapRecord['group'];setFilter(next);onSelect(records.find(item=>item.group===next)?.id||'')};
+ const initialView=cameras[filter]||(jurisdiction?{center:[...jurisdiction.center] as [number,number],zoom:jurisdiction.zoom}:undefined);
  return <div className="map-page police-real-map">
+  <div className="police-map-heading"><div><span>AREA OPERATIONS</span><h1>{areaName}</h1></div><span role="status">{visible.length} {filter.toLowerCase()} {visible.length===1?'record':'records'}</span></div>
   <div className="map-filter police-filters"><FilterBar items={['Fleet','Incidents','Watchlist']} active={filter} onChange={changeFilter}/></div>
-  <PoliceMapView key={filter} initialView={cameras[filter]} onViewChange={camera=>{cameras[filter]=camera}} markers={visible} selected={selected} onSelect={onSelect} onTrailSelect={onSelect} trail={trail}/>
+  <PoliceMapView key={`${jurisdictionId}-${filter}`} initialView={initialView} onViewChange={camera=>{cameras[filter]=camera}} markers={visible} selected={selected} onSelect={onSelect} onTrailSelect={onSelect} trail={trail}/>
+  {!visible.length&&<div className="police-map-empty"><PoliceEmptyState title={`No ${filter.toLowerCase()} records here`} text="There are no current records in this map layer."/></div>}
+  {active?.type==='watchlist'&&jurisdiction&&<p className="police-map-history">Latest sighting is in this area. The trail includes earlier sightings outside it.</p>}
   {active&&<BottomSheet eyebrow={selectedObservation?'MOVEMENT TRAIL OBSERVATION':active.eyebrow} title={selectedObservation?selectedObservation.observation.id:active.title} action={active.type==='incident'?'View Incident':active.type==='watchlist'?'Open Record':undefined} onAction={active.type!=='bus'&&actionRecordId?()=>open(actionRecordId):undefined}>
    {selectedObservation?<PoliceObservationDetails matchId={selectedObservation.parent.id} observation={selectedObservation.observation}/>:<PoliceMapDetails record={active}/>}
   </BottomSheet>}
@@ -60,22 +66,33 @@ function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)
 }
 
 function PoliceObservationDetails({matchId,observation}:{matchId:string;observation:FleetObservation}){
- const {watchlist}=useCityData();
+ const {watchlist}=usePoliceData();
  const match=watchlist.find(item=>item.id===matchId);
  if(!match)return null;
  return <div className="map-detail-grid"><span>Timestamp<strong>{formatDemoDate(demoDate(observation.timestamp))}</strong></span><span>Bus ID<strong>{observation.busId}</strong></span><span>Location<strong>{observation.location}</strong></span><span>Target<strong>{match.subjectName}</strong></span><span>Confidence<strong>{observation.confidence===undefined?'Not available':`${observation.confidence}%`}</strong></span><span>Route<strong>{observation.route}</strong></span></div>;
 }
 
-export default function PolicePages({page,navigate,exit}:{page:string;navigate:(p:string)=>void;exit:()=>void}){
- const {assignments,state}=useCityData();
+type PolicePagesProps={page:string;navigate:(p:string)=>void;exit:()=>void};
+export default function PolicePages(props:PolicePagesProps){
+ return <PoliceJurisdictionProvider><ScopedPoliceWorkspace {...props}/></PoliceJurisdictionProvider>;
+}
+function ScopedPoliceWorkspace(props:PolicePagesProps){
+ const {jurisdictionId}=usePoliceJurisdiction();
+ return <PoliceWorkspace key={jurisdictionId} {...props}/>;
+}
+function PoliceWorkspace({page,navigate,exit}:PolicePagesProps){
+ const {assignments,state,incidents,buses,watchlist,anomalies}=usePoliceData();
+ const {jurisdictionId}=usePoliceJurisdiction();
  const [workflow,setWorkflow]=useState<WorkflowView[]>([]);
- const [mapSelection,setMapSelection]=useState('INC-24091');
+ const [mapSelection,setMapSelection]=useState(()=>buses.find(bus=>bus.status==='Sensing')?.id||'');
  const mapCameras=useRef<Partial<Record<PoliceMapRecord['group'],PoliceMapCamera>>>({});
- const open=(view:WorkflowView)=>{history.replaceState({policeViews:workflow,primaryPage:page},'');const next=[...workflow,view];setWorkflow(next);history.pushState({policeViews:next,primaryPage:page},'')};
+ const open=(view:WorkflowView)=>{history.replaceState({policeViews:workflow,primaryPage:page,jurisdictionId},'');const next=[...workflow,view];setWorkflow(next);history.pushState({policeViews:next,primaryPage:page,jurisdictionId},'')};
  const back=()=>history.back();
  const openMapRecord=(id:string)=>open({kind:state.incidents[id]?'incident':'match',id});
- useEffect(()=>{const onPop=(event:PopStateEvent)=>{setWorkflow(event.state?.policeViews||[]);if(event.state?.policeViews&&event.state.primaryPage)navigate(event.state.primaryPage)};const home=()=>{setWorkflow([]);history.replaceState({screen:'workspace'},'')};addEventListener('popstate',onPop);addEventListener('workspace-home',home);return()=>{removeEventListener('popstate',onPop);removeEventListener('workspace-home',home)}},[]);
+ useEffect(()=>{const onPop=(event:PopStateEvent)=>{const sameScope=event.state?.jurisdictionId===jurisdictionId;setWorkflow(sameScope?event.state?.policeViews||[]:[]);if(sameScope&&event.state?.policeViews&&event.state.primaryPage)navigate(event.state.primaryPage)};const home=()=>{setWorkflow([]);history.replaceState({screen:'workspace',jurisdictionId},'')};addEventListener('popstate',onPop);addEventListener('workspace-home',home);return()=>{removeEventListener('popstate',onPop);removeEventListener('workspace-home',home)}},[jurisdictionId,navigate]);
  const active=workflow.at(-1);
+ const visibleRecord=(id:string)=>incidents.some(item=>item.id===id)||watchlist.some(item=>item.id===id)||anomalies.some(item=>item.id===id);
+ if(active&&!visibleRecord(active.id))return <MissingRecord id={active.id} onBack={back}/>;
  if(active?.kind==='incident')return <IncidentDetail id={active.id} assignment={assignments[active.id]} onBack={back} onEvidence={()=>open({kind:'evidence',id:active.id})} onAssign={()=>open({kind:'assignment',id:active.id})} onMap={()=>{setMapSelection(active.id);open({kind:'map',id:active.id})}}/>;
  if(active?.kind==='evidence')return <EvidenceView id={active.id} onBack={back}/>;
  if(active?.kind==='assignment')return <InvestigationAssignment key={active.id} id={active.id} current={assignments[active.id]} onBack={back}/>;
@@ -83,7 +100,7 @@ export default function PolicePages({page,navigate,exit}:{page:string;navigate:(
  if(active?.kind==='traffic')return <PoliceTrafficControl id={active.id} onBack={back}/>;
  if(active?.kind==='map')return <div className="police-workflow"><AppHeader title="Police map" subtitle={active.id} onBack={back}/><PoliceOperationalMap cameras={mapCameras.current} selected={mapSelection} onSelect={setMapSelection} open={openMapRecord}/></div>;
  return <><AppHeader title="Police Command & Control" onExit={exit}/><main>
-  {page==='overview'&&<PoliceOverview go={next=>{if(next==='map')setMapSelection('MTC-2147');navigate(next)}} open={id=>open({kind:'incident',id})} openMatch={id=>open({kind:'match',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
+  {page==='overview'&&<PoliceOverview go={next=>{if(next==='map')setMapSelection(buses.find(bus=>bus.status==='Sensing')?.id||'');navigate(next)}} open={id=>open({kind:'incident',id})} openMatch={id=>open({kind:'match',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
   {page==='incidents'&&<IncidentList open={id=>open({kind:'incident',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
   {page==='watchlist'&&<Watchlist open={id=>open({kind:'match',id})}/>}
   {page==='map'&&<PoliceOperationalMap cameras={mapCameras.current} selected={mapSelection} onSelect={setMapSelection} open={openMapRecord}/>}
@@ -91,26 +108,26 @@ export default function PolicePages({page,navigate,exit}:{page:string;navigate:(
 }
 
 function PoliceOverview({go,open,openMatch,openTraffic}:{go:(x:string)=>void;open:(x:string)=>void;openMatch:(id:string)=>void;openTraffic:(id:string)=>void}){
- const {state,incidents,watchlist,policeSummary}=useCityData();
+ const {state,incidents,watchlist,policeSummary,citizenReports}=usePoliceData();
  const priorityIncident=incidents.find(item=>isActive(item.status)&&Date.parse(item.observedAt)<=Date.parse(state.now));
  const priorityMatch=watchlist.find(item=>isActive(item.status));
  return <div className="page">
-  <PageIntro eyebrow="POLICE COMMAND · DEMO DATA" title="Operational overview" text={`Updated ${formatDemoTime(state.now)}`}/>
+  <PoliceAreaIntro eyebrow="POLICE OPERATIONS" title="Operational overview" text={`Updated ${formatDemoTime(state.now)}`}/>
   <div className="metric-grid compact"><MetricCard label="Active incidents" value={policeSummary.activeIncidents} tone="warn"/><MetricCard label="Possible matches" value={policeSummary.possibleMatches} tone="critical"/><MetricCard label="Vehicle observations" value={policeSummary.vehiclesObserved} meta="Latest corridor windows"/><MetricCard label="Alerts today" value={policeSummary.alertsToday}/></div>
-  <button className="sensor-strip fleet-link" onClick={()=>go('map')}><BusFront/><div><strong>{policeSummary.reportingBuses} buses reporting</strong><span>View all reporting bus locations</span></div><ArrowRight/></button>
+  <button className="sensor-strip fleet-link" onClick={()=>go('map')}><BusFront/><div><strong>{policeSummary.reportingBuses} buses reporting</strong><span>View reporting locations in this jurisdiction</span></div><ArrowRight/></button>
   <SectionHeader title="Fleet-connected match" action="Watchlist" onAction={()=>go('watchlist')}/>
-  {priorityMatch?<><p className="evidence-context">{new Set(priorityMatch.observations?.map(item=>item.busId)).size} buses → connected sightings → officer verification</p><WatchlistCard item={matchCard(priorityMatch)} onClick={()=>openMatch(priorityMatch.id)}/></>:<p>No matches awaiting review.</p>}
+  {priorityMatch?<><p className="evidence-context">{new Set(priorityMatch.observations?.map(item=>item.busId)).size} buses → connected sightings → officer verification</p><WatchlistCard item={matchCard(priorityMatch)} onClick={()=>openMatch(priorityMatch.id)}/></>:<PoliceEmptyState title="No matches awaiting review" text="No pending watchlist cases have their latest sighting here."/>}
     <TrafficControlEntries open={openTraffic}/>
-  <CitizenReportInbox recipient="police" openRecord={open}/>
+  <CitizenReportInbox recipient="police" openRecord={open} reports={citizenReports}/>
   <SectionHeader title="Priority alerts" action="All incidents" onAction={()=>go('incidents')}/>
-  {priorityIncident?<IncidentCard item={incidentCard(priorityIncident)} onClick={()=>open(priorityIncident.id)}/>:<p>No active incidents.</p>}
+  {priorityIncident?<IncidentCard item={incidentCard(priorityIncident)} onClick={()=>open(priorityIncident.id)}/>:<PoliceEmptyState title="No active incidents" text="There are no incidents awaiting response in this area."/>}
   <SectionHeader title="Recent activity"/>
   <RecentPoliceActivity/>
  </div>;
 }
 
 function RecentPoliceActivity(){
- const {state,policeSummary}=useCityData();
+ const {state,policeSummary}=usePoliceData();
  // Join stable activity IDs back to structured records, never infer a kind from a title.
  const categories=new Map<string,EventCategory>();
  const trafficDetails=new Map<string,string>();
@@ -130,12 +147,12 @@ function RecentPoliceActivity(){
   categories.set(`assignment-${assignment.id}`,category);
   categories.set(`acknowledgement-${assignment.id}`,category);
  }
- return <div className="activity-list event-activity">{policeSummary.activity.slice(0,4).map(item=><div className="event-scene-row" key={item.id}><EventThumbnail category={categories.get(item.id)||'incident'}/><p className="event-copy"><strong>{item.title}</strong><span>{trafficDetails.get(item.id)||item.detail}</span><time>{item.time}</time></p></div>)}</div>;
+ return policeSummary.activity.length?<div className="activity-list event-activity">{policeSummary.activity.slice(0,4).map(item=><div className="event-scene-row" key={item.id}><EventThumbnail category={categories.get(item.id)||'incident'}/><p className="event-copy"><strong>{item.title}</strong><span>{trafficDetails.get(item.id)||item.detail}</span><time>{item.time}</time></p></div>)}</div>:<PoliceEmptyState title="No activity yet" text="Local detections and team updates will appear here."/>;
 }
 
 function TrafficControlEntries({open}:{open:(id:string)=>void}){
- const {state}=useCityData();
- const anomalies=selectTrafficAnomalies(state).filter(item=>Date.parse(item.detectedAt)<=Date.parse(state.now));
+ const {state,anomalies:scopedAnomalies}=usePoliceData();
+ const anomalies=scopedAnomalies.filter(item=>Date.parse(item.detectedAt)<=Date.parse(state.now));
  const active=anomalies.filter(item=>!['Closed','Dismissed'].includes(item.status));
  const candidates=active.filter(item=>item.status==='Candidate').length;
  const closed=anomalies.filter(item=>item.status==='Closed').length;
@@ -147,22 +164,24 @@ function TrafficControlEntries({open}:{open:(id:string)=>void}){
 }
 
 function IncidentList({open,openTraffic}:{open:(x:string)=>void;openTraffic:(id:string)=>void}){
- const {state,incidents}=useCityData();
+ const {state,incidents,citizenReports}=usePoliceData();
  const [filter,setFilter]=useState('All');
- return <div className="page"><PageIntro eyebrow="INCIDENT RECORDS" title="Incidents" text="Observations requiring police review"/>
+ const visible=incidents.filter(x=>filter==='All'||(filter==='Resolved'?!isActive(x.status):isActive(x.status)&&Date.parse(x.observedAt)<=Date.parse(state.now)));
+ return <div className="page"><PoliceAreaIntro eyebrow="INCIDENT RECORDS" title="Local incidents" text="Review the observation. See the evidence. Coordinate a response."/>
     <TrafficControlEntries open={openTraffic}/>
-  <CitizenReportInbox recipient="police" openRecord={open}/>
+  <CitizenReportInbox recipient="police" openRecord={open} reports={citizenReports}/>
   <div className="segmented">{['All','Active','Resolved'].map(x=><button key={x} aria-pressed={filter===x} onClick={()=>setFilter(x)} className={filter===x?'active':''}>{x}</button>)}</div>
-  <div className="list-stack">{incidents.filter(x=>filter==='All'||(filter==='Resolved'?!isActive(x.status):isActive(x.status)&&Date.parse(x.observedAt)<=Date.parse(state.now))).map(x=><IncidentCard item={incidentCard(x)} key={x.id} onClick={()=>open(x.id)}/>)}</div>
+  <p className="police-list-count" role="status">{visible.length} {filter==='All'?'incident':filter.toLowerCase()+' incident'}{visible.length===1?'':'s'} in this jurisdiction</p>
+  <div className="list-stack">{visible.length?visible.map(x=><IncidentCard item={incidentCard(x)} key={x.id} onClick={()=>open(x.id)}/>):<PoliceEmptyState title="No incidents in this view" text="Try another status or continue monitoring this area."/>}</div>
  </div>;
 }
 
 function MissingRecord({id,onBack}:{id:string;onBack:()=>void}){
- return <div className="police-workflow"><AppHeader title="Record unavailable" subtitle={id} onBack={onBack}/><main className="page detail"><p>This record is no longer available.</p></main></div>;
+ return <div className="police-workflow"><AppHeader title="Record unavailable" subtitle={id} onBack={onBack}/><main className="page detail"><PoliceEmptyState title="Record outside this view" text="This record is unavailable or belongs to another jurisdiction."/></main></div>;
 }
 
 function IncidentDetail({id,assignment,onBack,onMap,onEvidence,onAssign}:{id:string;assignment?:Assignment;onBack:()=>void;onMap:()=>void;onEvidence:()=>void;onAssign:()=>void}){
- const {incidents}=useCityData();
+ const {incidents}=usePoliceData();
  const [clearance,setClearance]=useState('');
  const {busy,error,run}=useOperation();
  const x=incidents.find(item=>item.id===id);
@@ -193,7 +212,7 @@ function OperationalTimeline({incident}:{incident:CityIncident}){
 }
 
 function EvidenceView({id,onBack}:{id:string;onBack:()=>void}){
- const {incidents}=useCityData();
+ const {incidents}=usePoliceData();
  const [selectedFrame,setSelectedFrame]=useState<number>();
  const x=incidents.find(item=>item.id===id);
  if(!x)return <MissingRecord id={id} onBack={onBack}/>;
@@ -214,7 +233,7 @@ function EvidenceView({id,onBack}:{id:string;onBack:()=>void}){
 }
 
 function InvestigationAssignment({id,current,onBack}:{id:string;current?:Assignment;onBack:()=>void}){
- const {state}=useCityData();
+ const {state}=usePoliceData();
  const teams=Object.values(state.teams).filter(team=>state.departments[team.departmentId]?.role==='police');
  const [officer,setOfficer]=useState(current?.officer||'Inspector R. Kumar');
  const [teamId,setTeamId]=useState(()=>teams.find(team=>team.name===current?.team)?.id||teams[0]?.id||'');
@@ -234,20 +253,21 @@ function InvestigationAssignment({id,current,onBack}:{id:string;current?:Assignm
 }
 
 function Watchlist({open}:{open:(x:string)=>void}){
- const {watchlist,policeSummary}=useCityData();
+ const {watchlist,policeSummary}=usePoliceData();
  const [tab,setTab]=useState('Missing Persons');
  const matches=watchlist.filter(item=>item.subjectType===(tab==='Missing Persons'?'Missing Person':'Flagged Vehicle'));
  const visible=matches.filter(item=>item.status!=='Dismissed');
- return <div className="page"><PageIntro eyebrow="OFFICER VERIFICATION REQUIRED" title="Watchlist" text="Potential matches—not confirmed identifications"/>
+ return <div className="page"><PoliceAreaIntro eyebrow="OFFICER VERIFICATION REQUIRED" title="Watchlist in your area" text="Cases are shown by their latest sighting. Potential matches are not confirmed identifications."/>
   <div className="watch-metrics"><span>ACTIVE MATCHES<strong>{String(policeSummary.possibleMatches).padStart(2,'0')}</strong></span><span>WATCHLIST ENTRIES<strong>{watchlist.length}</strong></span></div>
   <div className="segmented">{['Missing Persons','Flagged Vehicles'].map(x=><button key={x} aria-pressed={tab===x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</div>
   <SectionHeader title={visible.length>0&&visible.every(item=>item.status==='Verified')?'Reviewed match':'Active matches'}/>
-  {visible.length?visible.map(item=><WatchlistCard key={item.id} item={matchCard(item)} onClick={()=>open(item.id)}/>):<div className="match-removed"><CheckCircle2/><strong>{matches.length?'Match dismissed':'No matches'}</strong><span>{matches.length?'This observation is no longer in the active queue.':'No observations are available for this category.'}</span></div>}
+  {visible.length?visible.map(item=><WatchlistCard key={item.id} item={matchCard(item)} onClick={()=>open(item.id)}/>):<PoliceEmptyState title={matches.length?'Match dismissed':'No matches in this area'} text={matches.length?'This observation is no longer in the active queue.':'No cases in this category have their latest sighting here.'}/>}
  </div>;
 }
 
 function MatchDetail({id,onBack}:{id:string;onBack:()=>void}){
- const {watchlist}=useCityData();
+ const {watchlist}=usePoliceData();
+ const {jurisdictionId}=usePoliceJurisdiction();
  const [observationId,setObservation]=useState<string>();
  const [saving,setSaving]=useState(false);
  const [error,setError]=useState('');
@@ -277,6 +297,8 @@ function MatchDetail({id,onBack}:{id:string;onBack:()=>void}){
   <EvidenceCredit src={selectedImage} additionalSources={[x.referenceImage,...observations.flatMap(item=>item.image?[item.image]:[])]} note={illustrated?'No real person is missing or identified. Production privacy and access controls are future work; authentication is not implemented.':'Reference photos only. People/vehicles pictured are not missing, wanted, flagged or identified by this demo. No identity or registration is inferred from these photos. Repeated images are references, not evidence of repeated sightings. Times, confidence and map points are conceptual demo observations, not a reconstructed route. Production privacy and access controls are future work; authentication is not implemented.'}/>
   <ConfidenceIndicator value={selected?.confidence??x.confidence}/>
   <Surface className="facts"><div><span>Observed by</span><strong>{selected?.busId||x.busId}</strong></div><div><span>Selected location</span><strong>{selected?.location||x.location}</strong></div><div><span>Time</span><strong>{selectedTimestamp}</strong></div><div><span>Route</span><strong>{selected?.route||x.route}</strong></div></Surface>
+  {jurisdictionId!=='all'&&<p className="police-history-note">This case’s latest sighting is in your jurisdiction. Earlier sightings below are retained as investigation context, including those outside your area.</p>}
+  {selected&&<p className="operation-meta">Sighting jurisdiction: {jurisdictionForSegment(selected.roadSegmentId)?.name||'Unmapped'}{!segmentInJurisdiction(selected.roadSegmentId,jurisdictionId)&&' · Outside selected area (historical context)'}</p>}
   {observations.length>0&&<><SectionHeader title="Demo observation trail"/><div className="evidence-trail">{observations.map((o,index)=><button key={o.id} aria-pressed={selected?.id===o.id} onClick={()=>setObservation(o.id)}>{o.image&&<EvidenceImage src={o.image} alt="" loading="lazy"/>}<span><strong>{index+1}. {o.location} · {formatDemoDate(demoDate(o.timestamp))}</strong><small>{o.busId} · Route {o.route}</small><small>{o.confidence===undefined?'Confidence unavailable':`${o.confidence}% demo confidence`}</small></span><ArrowRight aria-hidden="true"/></button>)}</div>
   <div className="mini-map real-map"><PoliceMapView markers={markers} selected={observationId||markers.at(-1)?.id} onSelect={setObservation} onTrailSelect={setObservation} trail={points}/></div>
   {observationId&&observations.find(item=>item.id===observationId)&&<PoliceObservationDetails matchId={id} observation={observations.find(item=>item.id===observationId)!}/>}
@@ -288,7 +310,7 @@ function MatchDetail({id,onBack}:{id:string;onBack:()=>void}){
 }
 
 function PoliceMapDetails({record}:{record:PoliceMapRecord}){
- const {state,buses,incidents,watchlist,assignments}=useCityData();
+ const {state,buses,incidents,watchlist,assignments}=usePoliceData();
  if(record.type==='bus'){
   const bus=buses.find(item=>item.id===record.id);
   if(!bus)return null;

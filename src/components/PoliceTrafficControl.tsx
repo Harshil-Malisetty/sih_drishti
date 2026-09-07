@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from 'react';
 import { selectEventResolution } from '../domain/operations';
-import { selectAssignment, selectTrafficAnomalies } from '../domain/selectors';
+import { selectAssignment } from '../domain/selectors';
 import { formatDemoDate } from '../domain/time';
 import { policeTrafficService, workflowService } from '../services';
-import { useCityData } from '../services/useCityData';
-import { AppHeader } from './ui';
+import { usePoliceData } from '../services/PoliceJurisdiction';
+import { PoliceHeader as AppHeader } from './PoliceHeader';
 import { ResolutionReview, useOperation, WorkflowHistory, WorkflowProgress } from './operations';
 
 export function PoliceTrafficControl({ id, onBack }: { id: string; onBack: () => void }) {
@@ -13,8 +13,8 @@ export function PoliceTrafficControl({ id, onBack }: { id: string; onBack: () =>
 
 function TrafficControlDetail({ id, onBack }: { id: string; onBack: () => void }) {
   useEffect(() => { window.scrollTo(0, 0); }, [id]);
-  const { state } = useCityData();
-  const anomaly = selectTrafficAnomalies(state).find(item => item.id === id);
+  const { state, anomalies } = usePoliceData();
+  const anomaly = anomalies.find(item => item.id === id);
   const event = { kind: 'anomaly' as const, id };
   const assignment = selectAssignment(state, event);
   const { resolution, review } = selectEventResolution(state, event);

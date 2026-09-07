@@ -94,9 +94,9 @@ export function MunicipalReportInbox({ openIssue }: { openIssue: (id: string) =>
   return <CitizenReportInbox recipient="municipal" openRecord={openIssue}/>;
 }
 
-export function CitizenReportInbox({ recipient, openRecord }: { recipient: ReportRecipient; openRecord: (id: string) => void }) {
+export function CitizenReportInbox({ recipient, openRecord, reports: scopedReports }: { recipient: ReportRecipient; openRecord: (id: string) => void; reports?: ReturnType<typeof useCityData>['state']['citizenReports'][string][] }) {
   const { state } = useCityData();
-  const reports = Object.values(state.citizenReports).filter(report => reportRecipient(report.category) === recipient).reverse();
+  const reports = (scopedReports || Object.values(state.citizenReports)).filter(report => reportRecipient(report.category) === recipient).slice().reverse();
   const [selectedId, setSelected] = useState<string>();
   const [note, setNote] = useState('');
   const { busy, error, run } = useOperation();

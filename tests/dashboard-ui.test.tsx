@@ -18,6 +18,9 @@ import { demoDate, formatDemoDate, formatDemoTime } from '../src/domain/time';
 import * as evidenceMedia from '../src/components/EvidenceMedia';
 import photoSources from '../public/evidence/photo-sources.json';
 import { fictionalPerson } from '../src/data/demo/fictionalPerson';
+import { PoliceHeader, PoliceAreaIntro } from '../src/components/PoliceHeader';
+import { PoliceJurisdictionProvider } from '../src/services/PoliceJurisdiction';
+import { policeJurisdictions } from '../src/domain/policeJurisdictions';
 
 // These tests render dashboard markup, not Leaflet's browser-only implementation.
 vi.mock('leaflet', () => ({ default: {} }));
@@ -190,6 +193,24 @@ describe('dashboard category photographs', () => {
 });
 
 describe('initial operational dashboards', () => {
+  it('keeps the jurisdiction section icon-free, with a labelled native selector and no demo metadata', () => {
+    const html = renderToStaticMarkup(<PoliceJurisdictionProvider initialJurisdiction="all"><PoliceHeader title="Police Command & Control"/><PoliceAreaIntro title="Operational overview" eyebrow="POLICE OPERATIONS" text="Updated 12:30"/></PoliceJurisdictionProvider>);
+    expect(html).toContain('<select');
+    expect(html).toContain('>Jurisdiction</label>');
+    expect(html).toContain('value="all" selected="">Citywide');
+    expect(html.match(/<option /g)).toHaveLength(6);
+    expect(html).not.toMatch(/<svg|All jurisdictions|Demo jurisdictions|5 operational areas|police-area-foot|police-area-label/);
+    expect(html).not.toContain('>Coverage</dt>');
+  });
+
+  it.each(policeJurisdictions)('shows useful corridor context when $id is selected', area => {
+    const html = renderToStaticMarkup(<PoliceJurisdictionProvider initialJurisdiction={area.id}><PoliceHeader title="Police Command & Control"/><PoliceAreaIntro title="Operational overview" eyebrow="POLICE OPERATIONS" text="Updated 12:30"/></PoliceJurisdictionProvider>);
+    expect(html).toContain(`value="${area.id}" selected=""`);
+    expect(html).toContain(area.areas);
+    expect(html).toContain('>Coverage</dt>');
+    expect(html).not.toMatch(/<svg|Demo jurisdictions|5 operational areas/);
+  });
+
   it('renders police category photos and plain traffic copy without a duplicate review action', () => {
     const html = renderToStaticMarkup(<PolicePages page="overview" navigate={noop} exit={noop}/>);
     expect(html).toContain('10 buses reporting');
@@ -303,7 +324,7 @@ describe('police display timestamps', () => {
   const cleanDate = (value: string) => formatDemoDate(demoDate(value));
   const expectClean = (html: string) => expect(html).not.toMatch(/\b\d{2}:\d{2}:\d{2}(?:\.\d+)?\b|Invalid Date/);
   const openWorkflow = (kind: 'match' | 'map' | 'evidence' | 'incident', id: string, selection = id) => {
-    vi.mocked(useState).mockReturnValueOnce([[{ kind, id }], noop]).mockReturnValueOnce([selection, noop]);
+    vi.mocked(useState).mockReturnValueOnce(['all', noop]).mockReturnValueOnce([[{ kind, id }], noop]).mockReturnValueOnce([selection, noop]);
   };
 
   it.each([undefined, anchor])('formats overview and watchlist cards without changing projections (anchor %s)', entry => {

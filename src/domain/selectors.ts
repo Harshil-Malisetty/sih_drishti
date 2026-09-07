@@ -4,6 +4,7 @@ import type {
   EventRef, MunicipalIssue, PublicMunicipalProject, PublicRoadCondition, PublicRoadImpact, RouteLeg,
 } from '../types/city';
 import { demoDate, formatDemoDate, formatDemoTime, formatDemoTimestamp, relativeDemoTime } from './time';
+import { eventInJurisdiction, matchInJurisdiction, segmentInJurisdiction, type PoliceJurisdictionId } from './policeJurisdictions';
 
 const inactiveStatuses: readonly Status[] = ['Resolved', 'Closed', 'Verified', 'Dismissed'];
 const isActive = (status: Status) => !inactiveStatuses.includes(status);
@@ -295,19 +296,20 @@ export function selectCitizenRoute(state: CityState): CitizenJourney {
   };
 }
 
-export function selectPoliceSummary(state: CityState) {
-  const incidents = Object.values(state.incidents);
-  const matches = Object.values(state.watchlist);
-  const observations = latestTraffic(state);
+export function selectPoliceSummary(state: CityState, scope: PoliceJurisdictionId = 'all') {
+  const incidents = Object.values(state.incidents).filter(item => segmentInJurisdiction(item.roadSegmentId, scope));
+  const matches = Object.values(state.watchlist).filter(item => matchInJurisdiction(item, scope));
+  const observations = latestTraffic(state).filter(item => segmentInJurisdiction(item.roadSegmentId, scope));
   const events: { id: string; at: string; title: string; detail: string }[] = [
     ...incidents.map(item => ({ id: `incident-${item.id}`, at: item.observedAt, title: item.type, detail: `${item.id} · ${item.location} · ${item.status}` })),
     ...matches.flatMap(item => item.observations?.length
-      ? item.observations.map(observation => ({ id: `match-${item.id}-${observation.id}`, at: observedTime(observation.timestamp), title: `${item.subjectType} possible match`, detail: `${item.id} · ${observation.location} · ${observation.busId} · ${item.status}` }))
+      ? item.observations.filter(observation => segmentInJurisdiction(observation.roadSegmentId, scope)).map(observation => ({ id: `match-${item.id}-${observation.id}`, at: observedTime(observation.timestamp), title: `${item.subjectType} possible match`, detail: `${item.id} · ${observation.location} · ${observation.busId} · ${item.status}` }))
       : [{ id: `match-${item.id}`, at: observedTime(item.timestamp), title: `${item.subjectType} possible match`, detail: `${item.id} · ${item.location} · ${item.status}` }]),
-    ...Object.values(state.anomalies).map(item => ({ id: `anomaly-${item.id}`, at: item.detectedAt, title: 'Traffic anomaly detected', detail: `${item.id} · ${roadName(state, item.roadSegmentId)} · ${item.status}` })),
+    ...Object.values(state.anomalies).filter(item => segmentInJurisdiction(item.roadSegmentId, scope)).map(item => ({ id: `anomaly-${item.id}`, at: item.detectedAt, title: 'Traffic anomaly detected', detail: `${item.id} · ${roadName(state, item.roadSegmentId)} · ${item.status}` })),
   ];
   const detectionEvents = [...events];
   for (const assignment of Object.values(state.assignments)) {
+    if (!eventInJurisdiction(state, assignment.event, scope)) continue;
     const team = state.teams[assignment.teamId];
     if (state.departments[team?.departmentId]?.role !== 'police') continue;
     const incident = assignment.event.kind === 'incident' && state.incidents[assignment.event.id];
@@ -323,7 +325,7 @@ export function selectPoliceSummary(state: CityState) {
     possibleMatches: matches.filter(item => isActive(item.status)).length,
     vehiclesObserved: observations.reduce((sum, item) => sum + item.vehicleCount, 0),
     alertsToday: detectionEvents.filter(item => byTime(item.at, state.now) <= 0 && day(item.at) === day(state.now)).length,
-    reportingBuses: Object.values(state.buses).filter(bus => bus.status === 'Sensing').length,
+    reportingBuses: Object.values(state.buses).filter(bus => bus.status === 'Sensing' && segmentInJurisdiction(bus.roadSegmentId, scope)).length,
     activity: events.filter(item => byTime(item.at, state.now) <= 0)
       .sort((a, b) => byTime(b.at, a.at) || byId(a, b))
       .map(item => ({ id: item.id, time: formatDemoDate(item.at), title: item.title, detail: item.detail })),
