@@ -2,7 +2,7 @@ import { cityStore } from './city';
 import type { CityCommand } from '../domain/cityStore';
 import type { CitizenReportInput, CityState, EmergencyStage, EventRef, MunicipalProject, ResolutionEvidence } from '../types/city';
 import { completionEvidence } from '../data/demo/operations';
-import { selectMunicipalTasks } from '../domain/operations';
+import { selectEmergency, selectMunicipalTasks } from '../domain/operations';
 import { reportRecipient } from '../domain/citizenReports';
 import { selectAssignment, selectCitizenAlerts, selectCitizenContext, selectCitizenRoute, selectIssues, selectPlannerRoads, selectPoliceSummary, selectTraffic, selectTrafficAnomalies, selectWatchlist } from '../domain/selectors';
 
@@ -123,9 +123,11 @@ export const policeTrafficService = {
 	advanceDispatch: (dispatchId: string, stage: 'En route' | 'On scene', actor: string) => command({ type: 'advanceDispatch', dispatchId, stage, actor }).then(state => structuredClone(state.dispatches[dispatchId])),
 };
 export const emergencyService = {
-	request: (event: EventRef, reason: string, actor: string) => command({ type: 'requestEmergency', event, reason, actor }).then(() => undefined),
-	assign: (dispatchId: string, teamId: string, actor: string) => command({ type: 'assignEmergency', dispatchId, teamId, actor }).then(() => undefined),
-	advance: (dispatchId: string, stage: Exclude<EmergencyStage, 'Requested' | 'Assigned'>, actor: string, outcome?: string) => command({ type: 'advanceEmergency', dispatchId, stage, actor, outcome }).then(() => undefined),
+	request: (event: EventRef, reason: string, actor: string) => command({ type: 'requestEmergency', event, reason, actor }).then(state => {
+		const dispatch = selectEmergency(state, event)!;
+		return structuredClone({ dispatch, station: state.policeStations[dispatch.stationId] });
+	}),
+	advance: (dispatchId: string, stage: Exclude<EmergencyStage, 'Assigned'>, actor: string, outcome?: string) => command({ type: 'advanceEmergency', dispatchId, stage, actor, outcome }).then(() => undefined),
 	resolveIncident: (dispatchId: string, actor: string) => command({ type: 'resolveEmergencyIncident', dispatchId, actor }).then(() => undefined),
 };
 export const trafficService = {

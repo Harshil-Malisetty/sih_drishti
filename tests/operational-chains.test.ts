@@ -11,11 +11,10 @@ const actor = 'Demo operator';
 type Store = ReturnType<typeof createCityStore>;
 
 function requestEmergency(store: Store, event = incident as typeof incident | typeof municipal) {
-  store.dispatch({ type: 'requestEmergency', event, reason: 'Manual request for coordinated on-site safety assistance', actor });
+  store.dispatch({ type: 'requestEmergency', event, reason: 'Coordinated on-site safety assistance', actor });
   return Object.values(store.getSnapshot().emergencyDispatches).find(item => item.event.kind === event.kind && item.event.id === event.id)!;
 }
 function dispatchToScene(store: Store, id: string) {
-  store.dispatch({ type: 'assignEmergency', dispatchId: id, teamId: 'city-response-team', actor });
   store.dispatch({ type: 'advanceEmergency', dispatchId: id, stage: 'En route', actor });
   store.dispatch({ type: 'advanceEmergency', dispatchId: id, stage: 'On scene', actor });
 }
@@ -46,14 +45,16 @@ describe('state-derived Municipal admin tasks', () => {
   });
 });
 
-describe('manual emergency response and resource release', () => {
+describe('automatic emergency allocation and response release', () => {
   it('requires ordered response, discharge, and a separate event-resolution action', () => {
     const store = createCityStore(createCitySeed());
     const response = requestEmergency(store);
     expect(store.dispatch({ type: 'requestEmergency', event: incident, reason: 'Same request', actor })).toBe(store.getSnapshot());
     expect(Object.values(store.getSnapshot().emergencyDispatches)).toHaveLength(1);
     expectRejected(store, { type: 'advanceEmergency', dispatchId: response.id, stage: 'Discharged', actor }, /Invalid emergency/);
-    expectRejected(store, { type: 'assignEmergency', dispatchId: response.id, teamId: 'traffic-investigation', actor }, /City Response/);
+    expect(response.stage).toBe('Assigned');
+    expect(response.stationId).toBeTruthy();
+    expectRejected(store, { type: 'advanceEmergency', dispatchId: response.id, stage: 'On scene', actor }, /Invalid emergency/);
     dispatchToScene(store, response.id);
     expectRejected(store, { type: 'resolveEmergencyIncident', dispatchId: response.id, actor }, /Release the team/);
     expectRejected(store, { type: 'advanceEmergency', dispatchId: response.id, stage: 'Response complete', actor }, /outcome/);
@@ -87,18 +88,19 @@ describe('manual emergency response and resource release', () => {
     expect(selectCitizenContext(store.getSnapshot()).conditions.find(item => item.id === municipal.id)?.verified).toBe(false);
   });
 
-  it('keeps a response team busy until discharge and allows reuse afterward', () => {
-    const store = createCityStore(createCitySeed());
+  it('allocates concurrent events to the nearest station without waiting for another response to finish', () => {
+    const seed = createCitySeed();
+    const station = seed.policeStations['station-teynampet'];
+    seed.policeStations = { [station.id]: station };
+    const store = createCityStore(seed);
     const first = requestEmergency(store);
     dispatchToScene(store, first.id);
     store.dispatch({ type: 'qualifyIssue', issueId: municipal.id, actor });
     const second = requestEmergency(store, municipal);
-    expectRejected(store, { type: 'assignEmergency', dispatchId: second.id, teamId: 'city-response-team', actor }, /already assigned/);
+    expect(second).toMatchObject({ stage: 'Assigned', stationId: first.stationId });
     store.dispatch({ type: 'advanceEmergency', dispatchId: first.id, stage: 'Response complete', actor, outcome: 'Assistance complete' });
-    expectRejected(store, { type: 'assignEmergency', dispatchId: second.id, teamId: 'city-response-team', actor }, /already assigned/);
     store.dispatch({ type: 'advanceEmergency', dispatchId: first.id, stage: 'Discharged', actor });
-    store.dispatch({ type: 'assignEmergency', dispatchId: second.id, teamId: 'city-response-team', actor });
-    expect(store.getSnapshot().emergencyDispatches[second.id].stage).toBe('Assigned');
+    expect(store.getSnapshot().emergencyDispatches[second.id]).toEqual(second);
   });
 });
 

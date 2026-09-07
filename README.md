@@ -41,7 +41,14 @@ Operational records are simulated demonstration data. All bundled evidence image
 - State survives workspace exit/re-entry in the same page. **Reload intentionally restores the seed**; `demoService.reset()` does the same. Durable/cross-tab persistence is not implemented. Existing page stacks and GIS selection/camera state remain UI-local.
 - Role entry shows a read-only fictional identity (POLICE-204, MUNICIPAL-118 or CITIZEN-032) and explicitly opens a demo workspace without credentials. It is not authentication. Citizen selectors redact internal source/team/watchlist fields; this is not a production security boundary because the browser still contains fictional Police records.
 
+## Automatic emergency response
+
+- Eligible Police incidents and qualified critical Municipal issues expose **Activate emergency response**. One click atomically allocates the nearest police station and shows a station-specific notification; no reason form, team picker, or second dispatch confirmation is required.
+- Selection uses event coordinates and great-circle distance across the entire demo station directory, regardless of the selected Police jurisdiction. Distance is approximate, not road travel time. Duplicate requests reuse the same allocation.
+- Stations and their coordinates in [src/data/demo/policeStations.ts](src/data/demo/policeStations.ts) are illustrative, not a verified emergency directory. Allocation is to a station response desk, which can coordinate multiple events; individual field-unit availability is not simulated. No real station is notified. Departure, arrival, completion and discharge are still recorded separately, and Municipal repair/review remains required.
+
 ## Citizen journeys and reports
+
 
 - Citizen opens a Leaflet map with source/destination selectors, current-location support, selectable routes and only journey-relevant road conditions. Map, Routes and On route are shortcuts within the same persistent journey, not separate dashboards.
 - The Teynampet → Guindy demonstration uses two saved OSRM/OpenStreetMap road-network routes. Other supported Chennai landmark pairs, reverse journeys and current-location journeys request the public OSRM service on demand. No arbitrary-address geocoding or turn-by-turn guidance is implemented.

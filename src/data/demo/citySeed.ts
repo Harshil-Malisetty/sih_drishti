@@ -1,6 +1,7 @@
 import { buses, defects, incidents, municipalEvidenceImages, plannerRoadSegments, traffic, watchlist } from './index';
 import type { CityState, CityTrafficObservation, Department, IssueKind, MunicipalIssue, RoadSegment, Team } from '../../types/city';
 import { anchorCityHistory, demoDate } from '../../domain/time';
+import { demoPoliceStations } from './policeStations';
 
 export const DEMO_START = '2026-09-05T18:55:00+05:30';
 const byId = <T extends { id: string }>(items: T[]): Record<string, T> => Object.fromEntries(items.map(item => [item.id, item]));
@@ -106,6 +107,7 @@ export function createCitySeed(anchor = DEMO_START): CityState {
     incidents: byId(incidents.map(incident => ({ ...structuredClone(incident), roadSegmentId: incidentSegments[incident.id], observedAt: demoDate(incident.timestamp) }))),
     watchlist: byId(watchlist.map(match => ({ ...structuredClone(match), observations: match.observations?.map(observation => ({ ...observation, roadSegmentId: sightingSegments[observation.id] })) }))), issues, departments: byId(departments), teams: byId(teams),
     assignments: {}, resolutions: {}, reviews: {}, anomalies: {}, dispatches: {}, emergencyDispatches: {}, scenarios: {}, projects: {}, citizenReports: {},
+    policeStations: byId(structuredClone(demoPoliceStations)),
     journey: { id: 'ROUTE-B', origin: 'Teynampet', destination: 'Guindy', current: [{ roadSegmentId: 'anna', fraction: 1 },{ roadSegmentId: 'inner-ring', fraction: 14/27 }], alternative: [{ roadSegmentId: 'cpr', fraction: 1 },{ roadSegmentId: 'inner-ring', fraction: 4/27 }], viaSegmentId: 'cpr', stops: ['Start · Teynampet','C.P. Ramaswamy Road','Guindy','Destination'] },
   };
   const event = { kind: 'municipal' as const, id: repaired.id };

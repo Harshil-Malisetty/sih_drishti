@@ -374,8 +374,7 @@ describe('approval, rework and emergency boundaries', () => {
     const emergencyId = Object.values(cityStore.getSnapshot().emergencyDispatches).at(-1)!.id;
     const submit = () => workflowService.submitResolution(resolutionCommand(cityStore, municipal));
     await rejected(submit, /discharge/);
-    await emergencyService.assign(emergencyId, 'city-response-team', actor);
-    await rejected(submit, /discharge/);
+    expect(cityStore.getSnapshot().emergencyDispatches[emergencyId].stage).toBe('Assigned');
     for (const stage of ['En route', 'On scene', 'Response complete'] as const) {
       await emergencyService.advance(emergencyId, stage, actor, 'Crew access secured');
       await rejected(submit, /discharge/);
@@ -389,7 +388,7 @@ describe('approval, rework and emergency boundaries', () => {
     await committed(() => workflowService.approveAndClose(lastReview().id, actor, 'Field evidence verified after discharge'), 2);
     expect(cityStore.getSnapshot().emergencyDispatches[emergencyId]).toEqual(discharged);
     expect(discharged.history.map(item => item.action)).toEqual([
-      'Emergency team dispatch requested by operator', `Team assigned: ${cityStore.getSnapshot().teams['city-response-team'].name}`,
+      'Emergency response activated', `Emergency team automatically allocated from nearest station: ${cityStore.getSnapshot().policeStations[discharged.stationId].name} (demo)`,
       'En route', 'On scene', 'Response complete', 'Team discharged / released from event',
     ]);
     expectIntegrity(cityStore.getSnapshot());

@@ -15,12 +15,13 @@ export function useOperation(defaultFeedback: ActionFeedbackInput = 'Action comp
   const mounted = useRef(true);
   const { notify } = useFeedback();
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  const run = async (action: () => Promise<unknown>, feedback: ActionFeedbackInput = defaultFeedback): Promise<boolean> => {
+  const run = async <T,>(action: () => Promise<T>, feedback: ActionFeedbackInput | ((result: T) => ActionFeedbackInput) = defaultFeedback): Promise<boolean> => {
     if (pending.current || !mounted.current) return false;
     pending.current = true; setBusy(true); setError('');
     try {
-      await action();
-      const { message, tone } = typeof feedback === 'string' ? { message: feedback, tone: 'success' as const } : feedback;
+      const result = await action();
+      const receipt = typeof feedback === 'function' ? feedback(result) : feedback;
+      const { message, tone } = typeof receipt === 'string' ? { message: receipt, tone: 'success' as const } : receipt;
       notify(message, tone);
       return true;
     } catch (cause) {

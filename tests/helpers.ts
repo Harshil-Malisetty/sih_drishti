@@ -138,6 +138,15 @@ export function expectIntegrity(state: CityState) {
     expect(state.trafficObservations[anomaly.observationId].roadSegmentId).toBe(anomaly.roadSegmentId);
   }
   for (const dispatch of Object.values(state.dispatches)) ref(state.anomalies, dispatch.anomalyId);
+  for (const [id, dispatch] of Object.entries(state.emergencyDispatches)) {
+    expect(dispatch.id).toBe(id);
+    event(dispatch.event);
+    ref(state.policeStations, dispatch.stationId);
+    expect(dispatch.assignedAt).toBe(dispatch.requestedAt);
+    expect(Number.isFinite(dispatch.distanceKm)).toBe(true);
+    expect(dispatch.distanceKm).toBeGreaterThanOrEqual(0);
+    expect(Date.parse(dispatch.assignedAt)).toBeLessThanOrEqual(Date.parse(state.now));
+  }
   for (const scenario of Object.values(state.scenarios)) {
     ref(state.roadSegments, scenario.roadSegmentId);
     expect(scenario.inputs.road.id).toBe(scenario.roadSegmentId);

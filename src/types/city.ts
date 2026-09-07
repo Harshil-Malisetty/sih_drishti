@@ -20,6 +20,8 @@ export interface CityIncident extends Incident { roadSegmentId: string; observed
 export type IssueKind = 'pothole' | 'waterlogging' | 'obstruction' | 'zebra-crossing' | 'divider' | 'signboard' | 'guardrail' | 'school-crossing';
 export interface Department { id: string; name: string; role: 'municipal' | 'police' | 'response' }
 export interface Team { id: string; departmentId: string; name: string }
+// Demo station response desks, not exclusive field units or a live dispatch directory.
+export interface PoliceStation { id: string; name: string; latitude: number; longitude: number }
 export type EventRef = { kind: 'municipal'; id: string } | { kind: 'incident'; id: string } | { kind: 'anomaly'; id: string };
 export type WorkflowStage = 'Detected' | 'Qualified' | 'Assigned' | 'Acknowledged' | 'In progress' | 'Admin review' | 'Verified' | 'Closed';
 export interface WorkflowEntry { at: string; action: string; actor: string }
@@ -51,10 +53,11 @@ export interface TrafficAnomaly {
 }
 export type DispatchStage = 'Requested' | 'Assigned' | 'En route' | 'On scene' | 'Admin review' | 'Verified' | 'Closed';
 export interface PoliceDispatch { id: string; anomalyId: string; requestedAt: string; stage: DispatchStage; history: WorkflowEntry[] }
-export type EmergencyStage = 'Requested' | 'Assigned' | 'En route' | 'On scene' | 'Response complete' | 'Discharged';
+export type EmergencyStage = 'Assigned' | 'En route' | 'On scene' | 'Response complete' | 'Discharged';
 export interface EmergencyDispatch {
   id: string; event: EventRef; reason: string; requestedAt: string; stage: EmergencyStage;
-  teamId?: string; completedAt?: string; dischargedAt?: string; outcome?: string; resolvedAt?: string;
+  stationId: string; assignedAt: string; distanceKm: number;
+  completedAt?: string; dischargedAt?: string; outcome?: string; resolvedAt?: string;
   history: WorkflowEntry[];
 }
 export type ImpactSeverity = Extract<Severity, 'High' | 'Medium' | 'Low'> | 'Severe';
@@ -118,6 +121,7 @@ export interface CityState {
   buses: Record<string, CityBus>; incidents: Record<string, CityIncident>;
   watchlist: Record<string, WatchlistMatch>; issues: Record<string, MunicipalIssue>;
   departments: Record<string, Department>; teams: Record<string, Team>;
+  policeStations: Record<string, PoliceStation>;
   assignments: Record<string, DepartmentAssignment>; resolutions: Record<string, FieldResolution>;
   reviews: Record<string, AdminReview>; anomalies: Record<string, TrafficAnomaly>;
   dispatches: Record<string, PoliceDispatch>; scenarios: Record<string, PlanningScenario>;

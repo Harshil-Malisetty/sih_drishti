@@ -1,6 +1,19 @@
-# Police jurisdiction filtering and focused civic UI refinement
+# Automatic nearest-station emergency allocation
 
 Date: 7 September 2026. Current pass; earlier reports below are historical.
+
+- Both Police and Municipal emergency entry points use one **Activate emergency response** action. The shared command immediately saves an assigned station; there is no pending request, reason form, manual team picker or second dispatch action. The notification names the allocated station.
+- Selection uses Haversine distance from the event to all configured demo stations, with stable ID tie-breaking. Invalid coordinates or an empty valid directory reject atomically. Repeated/concurrent requests reuse the original allocation. Normal investigation and Municipal repair assignments are unchanged.
+- **250 tests across 18 files passed**, including 13 new nearest-selection, atomicity, receipt, eligibility, timestamp and shared-panel tests. Production build, no-emit TypeScript and whitespace checks passed.
+- Production-preview browser checks: Police collision → Teynampet Police Station (1.80 km); qualified Municipal waterlogging → Velachery Police Station (0.09 km). Both displayed station-specific notifications and stayed at Assigned, without pretending the team had departed. Double-clicking Municipal activation produced a single allocation with two audit entries, no remaining activation button or emergency team picker. The 390×844 emergency panel had no horizontal overflow; its screenshot was reviewed.
+- Demo limitations: station names/coordinates are illustrative, not a verified emergency directory; distances are straight-line estimates, not travel times. Allocation represents a station response desk, not reservation of an individual field unit. No real emergency service is contacted. Progress/discharge and Municipal repair review remain separate. Reload resets demo state.
+- No dependencies added, commit/push or deployment performed.
+
+---
+
+# Historical: Police jurisdiction filtering and focused civic UI refinement
+
+Date: 7 September 2026. Historical pass.
 
 - Police jurisdiction selection applies across overview totals/activity, incident queues, traffic control, citizen intake, both watchlist categories, maps and details. The choice is retained in session storage; changing it closes stale details and restores keyboard focus to the selector. Citywide remains available.
 - The five areas are **demo corridor groupings, not official police boundaries or access controls**. Ownership is explicit by road segment. Watchlist ownership follows the latest sighting, never a source bus's current position; earlier out-of-area sightings remain labelled investigation context. Shared operational records and citywide team availability remain intact.

@@ -97,6 +97,7 @@ export function anchorCityHistory(seed: CityState, anchor: string): CityState {
   for (const dispatch of Object.values(state.dispatches)) { dispatch.requestedAt = shift(dispatch.requestedAt); history(dispatch.history); }
   for (const dispatch of Object.values(state.emergencyDispatches)) {
     dispatch.requestedAt = shift(dispatch.requestedAt);
+    dispatch.assignedAt = shift(dispatch.assignedAt);
     if (dispatch.completedAt) dispatch.completedAt = shift(dispatch.completedAt);
     if (dispatch.dischargedAt) dispatch.dischargedAt = shift(dispatch.dischargedAt);
     if (dispatch.resolvedAt) dispatch.resolvedAt = shift(dispatch.resolvedAt);

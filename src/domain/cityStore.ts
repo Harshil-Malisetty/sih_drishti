@@ -2,6 +2,7 @@ import type { AdminReview, CitizenReportInput, CityState, CityTrafficObservation
 import { calculateScenario } from './planning';
 import { selectAssignment } from './selectors';
 import { emergencyEligible, selectEmergency } from './operations';
+import { allocateEmergencyStation } from './emergencyAllocation';
 import { reportCategories, reportRecipient, type ReportRecipient } from './citizenReports';
 import { anchorCityHistory, browserClock, formatDemoTime, timestampMillis, type CityClock } from './time';
 
@@ -14,8 +15,7 @@ export type CityCommand =
   | { type: 'closeDispatch'; dispatchId: string; actor: string }
   | { type: 'observeRecovery'; anomalyId: string; actor: string }
   | { type: 'requestEmergency'; event: EventRef; reason: string; actor: string }
-  | { type: 'assignEmergency'; dispatchId: string; teamId: string; actor: string }
-  | { type: 'advanceEmergency'; dispatchId: string; stage: Exclude<EmergencyStage, 'Requested' | 'Assigned'>; actor: string; outcome?: string }
+  | { type: 'advanceEmergency'; dispatchId: string; stage: Exclude<EmergencyStage, 'Assigned'>; actor: string; outcome?: string }
   | { type: 'resolveEmergencyIncident'; dispatchId: string; actor: string }
   | { type: 'assign'; event: EventRef; teamId: string; assignee: string }
   | { type: 'acknowledge'; issueId: string }
@@ -289,19 +289,14 @@ export function reduceCity(state: CityState, command: CityCommand, now = state.n
       text(command.actor, 'Requesting operator'); text(command.reason, 'Response reason');
       if (selectEmergency(next, command.event)) return state;
       if (!emergencyEligible(next, command.event)) throw new Error('This event does not qualify for the demo coordinated-response workflow');
+      const { station, distanceKm } = allocateEmergencyStation(next, command.event);
+      // One atomic allocation, with no unassigned state or manual dispatch handoff.
+      // A station response desk can own multiple events; this does not reserve a specific field unit.
       next.emergencyDispatches[id('EMG')] = { id: id('EMG'), event: { ...command.event }, reason: command.reason,
-        requestedAt: next.now, stage: 'Requested', history: [{ at: next.now, action: 'Emergency team dispatch requested by operator', actor: command.actor }] };
-      break;
-    }
-    case 'assignEmergency': {
-      text(command.actor, 'Assigning operator');
-      const dispatch = required(next.emergencyDispatches[command.dispatchId], 'Unknown emergency dispatch');
-      const team = required(next.teams[command.teamId], 'Unknown response team');
-      if (dispatch.stage === 'Assigned' && dispatch.teamId === team.id) return state;
-      if (dispatch.stage !== 'Requested' || next.departments[team.departmentId]?.role !== 'response') throw new Error('Choose an available City Response team for a requested dispatch');
-      if (Object.values(next.emergencyDispatches).some(item => item.teamId === team.id && item.stage !== 'Discharged')) throw new Error('Response team is already assigned; discharge it before reassignment');
-      dispatch.stage = 'Assigned'; dispatch.teamId = team.id;
-      dispatch.history.push({ at: next.now, action: `Team assigned: ${team.name}`, actor: command.actor });
+        requestedAt: next.now, assignedAt: next.now, stationId: station.id, distanceKm, stage: 'Assigned', history: [
+          { at: next.now, action: 'Emergency response activated', actor: command.actor },
+          { at: next.now, action: `Emergency team automatically allocated from nearest station: ${station.name} (demo)`, actor: 'Automatic emergency allocation' },
+        ] };
       break;
     }
     case 'advanceEmergency': {
