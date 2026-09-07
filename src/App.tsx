@@ -1,7 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type SVGProps } from 'react';
-import { ArrowLeft, ArrowRight, BusFront, ChevronRight, Cpu, Network } from 'lucide-react';
-import { LazyMotion, domAnimation, useReducedMotion, type Variants } from 'motion/react';
-import * as m from 'motion/react-m';
+import { ArrowLeft, ArrowRight, MapPin } from 'lucide-react';
 import drishtiLogo from './assets/drishti_logo.png';
 import { navigation } from './navigation/config';
 import type { Role } from './types';
@@ -21,6 +19,12 @@ const roleDetails = {
  police: { label: 'Police', workspace: 'Police Command', sub: 'Incidents & Watchlist', identity: 'POLICE-204', Icon: PoliceIcon },
  municipal: { label: 'Municipal', workspace: 'Municipal Operations', sub: 'Roads & Infrastructure', identity: 'MUNICIPAL-118', Icon: MunicipalIcon },
  citizen: { label: 'Citizen', workspace: 'Citizen Mobility', sub: 'Traffic & Mobility', identity: 'CITIZEN-032', Icon: CitizenIcon }
+};
+
+const roleBanners = {
+ police: { category: 'Public safety', description: 'A clearer picture. A quicker response.', photo: '/landing/police.webp', location: 'Kolkata, West Bengal' },
+ municipal: { category: 'City care', description: 'Better streets, from the ground up.', photo: '/landing/municipal.webp', location: 'Ripon Building, Chennai' },
+ citizen: { category: 'Everyday journeys', description: 'Know your city. Move with confidence.', photo: '/landing/citizen.webp', location: 'Chennai Metro, Koyambedu' }
 };
 
 export default function App(){
@@ -64,35 +68,34 @@ function AppScreens(){
  return <SessionActionsProvider onLogout={()=>setConfirmLogout(true)} onHome={()=>{window.dispatchEvent(new Event('workspace-home'));if(role==='citizen')navigateCitizen('map');else setPage('overview')}}><div className={`app-shell ${role}`}>{role==='police'?<PolicePages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:role==='municipal'?<MunicipalPages page={page} navigate={setPage} exit={()=>setConfirmLogout(true)}/>:<CitizenPages page={page} navigationVersion={citizenNavigationVersion} navigate={navigateCitizen} exit={()=>setConfirmLogout(true)}/>}<BottomNavigation items={items} active={page} onChange={changePrimaryPage}/>{confirmLogout&&<LogoutDialog role={role} onCancel={()=>setConfirmLogout(false)} onConfirm={logout}/>}</div></SessionActionsProvider>
 }
 
-function BrandHeader({entrance}:{entrance?:Variants}){
- const content=<><img className="brand-logo" src={drishtiLogo} alt=""/><div><strong>DRISHTI</strong><small>AI-Powered Mobile Urban Intelligence</small></div><span className="demo">DEMO</span></>;
- // Only Landing supplies variants; demo sign-in keeps its existing static header.
- return entrance?<m.header variants={entrance} custom={0}>{content}</m.header>:<header>{content}</header>;
+function BrandHeader({landing=false}:{landing?:boolean}){
+ return <header><img className="brand-logo" src={drishtiLogo} alt=""/><div><strong>DRISHTI</strong></div>{landing&&<nav className="landing-nav" aria-label="Main navigation"><a href="#landing-title">Overview</a><a href="#workspaces">Workspaces</a></nav>}<span className="demo">DEMO</span></header>;
 }
 
 function Landing({enter}:{enter:(r:WorkspaceRole)=>void}){
- const roles=(Object.keys(roleDetails) as WorkspaceRole[]).map(id=>({id,...roleDetails[id]}));
+ const roles=(Object.keys(roleDetails) as WorkspaceRole[]).map(id=>({id,...roleDetails[id],...roleBanners[id]}));
  const title=useRef<HTMLHeadingElement>(null);
- const reduceMotion=useReducedMotion()!==false;
- const reveal:Variants={
-   hidden:{opacity:0,y:6},
-   visible:(delay:number=0)=>({opacity:1,y:0,transition:{type:'tween',duration:reduceMotion?0:.24,delay:reduceMotion?0:delay,ease:[.22,1,.36,1]}})
- };
  useEffect(()=>{title.current?.focus({preventScroll:true});window.scrollTo(0,0)},[]);
- // Scope Motion to this screen, without layout/drag features or navigation delays.
- return <LazyMotion features={domAnimation} strict><m.main className="landing" initial={reduceMotion?false:'hidden'} animate="visible"><BrandHeader entrance={reveal}/>
-  <section className="hero" aria-labelledby="landing-title">
-    <m.h1 id="landing-title" ref={title} tabIndex={-1} variants={reveal} custom={.04}>Better City starting from a Better View</m.h1>
-    <m.p className="hero-summary" variants={reveal} custom={.11}>Bus cameras help city teams spot road problems and keep people moving.</m.p>
-   <div className="intelligence-flow" aria-label="From bus cameras to city services">
-    <ol><m.li variants={reveal} custom={.18}><BusFront aria-hidden="true"/><span>Bus cameras</span></m.li><m.li variants={reveal} custom={.25}><ArrowRight aria-hidden="true"/><Cpu aria-hidden="true"/><span>Edge AI</span></m.li><m.li variants={reveal} custom={.32}><ArrowRight aria-hidden="true"/><Network aria-hidden="true"/><span>City intelligence</span></m.li></ol>
+ return <main className="landing landing--photographic"><BrandHeader landing/>
+  <section className="landing-hero" aria-labelledby="landing-title">
+   <img className="landing-hero-photo" src="/landing/hero.webp" alt="" width={1600} height={900} fetchPriority="high"/>
+   <div className="landing-hero-copy">
+    <p className="landing-kicker">One city. A shared vision.</p>
+    <h1 id="landing-title" ref={title} tabIndex={-1}>Better City<br/>starting from<br/><span>a Better View</span></h1>
+    <p className="landing-intro">Safer streets. Stronger neighbourhoods. Smoother journeys. A connected view for everyone who keeps the city moving.</p>
+    <a className="landing-explore" href="#workspaces">Find your workspace <ArrowRight aria-hidden="true"/></a>
    </div>
+   <span className="landing-photo-location"><MapPin aria-hidden="true"/> Marina Beach, Chennai</span>
   </section>
-   <section className="role-section" aria-labelledby="workspace-title"><div><h2 id="workspace-title">Select your workspace</h2><p className="workspace-caption">Three roles. One shared city view.</p></div>
-    <div className="role-list">{roles.map(({id,label,sub,Icon})=><m.button type="button" className={`role-card role-card--${id}`} onClick={()=>enter(id)} key={id} initial={false} animate={{x:0}} whileHover={{x:reduceMotion?0:2}} whileTap={{x:reduceMotion?0:1}} transition={{type:'tween',duration:reduceMotion?0:.14,ease:'easeOut'}}><i><Icon/></i><div><strong>{label}</strong><span>{sub}</span></div><ChevronRight aria-hidden="true"/></m.button>)}</div>
+  <section id="workspaces" className="workspace-section" aria-labelledby="workspace-title">
+   <div className="workspace-section-heading"><div><p className="landing-kicker">Your city. Your perspective.</p><h2 id="workspace-title">Select your workspace</h2></div><p>Three roles. One shared city view.</p></div>
+   <div className="workspace-banners">{roles.map(({id,label,sub,category,description,photo,location},index)=><button type="button" className={`workspace-banner workspace-banner--${id}`} onClick={()=>enter(id)} key={id} aria-labelledby={`${id}-banner-title`} aria-describedby={`${id}-banner-description`}>
+    <span className="workspace-banner-photo"><img src={photo} alt="" width={960} height={640} decoding="async"/><span className="workspace-banner-location"><MapPin aria-hidden="true"/>{location}</span></span>
+    <span className="workspace-banner-copy"><span className="workspace-banner-category"><span>{category}</span><span aria-hidden="true">0{index+1}</span></span><strong id={`${id}-banner-title`}>{label}</strong><span className="workspace-banner-description" id={`${id}-banner-description`}>{description}</span><span className="workspace-banner-sub">{sub}</span><span className="workspace-banner-action">Open workspace <ArrowRight aria-hidden="true"/></span></span>
+   </button>)}</div>
   </section>
-  <footer><span>Simulated data · No account needed</span><a href="/evidence/credits.html" target="_blank" rel="noreferrer">Evidence sources</a></footer>
- </m.main></LazyMotion>;
+  <footer><span>Simulated data · No account needed</span><div><a href="/landing/credits.html" target="_blank" rel="noreferrer">Photo credits</a><a href="/evidence/credits.html" target="_blank" rel="noreferrer">Evidence sources</a></div></footer>
+ </main>;
 }
 
 function SignIn({role,onBack,onSubmit}:{role:WorkspaceRole;onBack:()=>void;onSubmit:()=>void}){

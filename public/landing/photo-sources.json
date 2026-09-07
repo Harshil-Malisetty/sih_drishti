@@ -1,0 +1,54 @@
+[
+  {
+    "id": "hero",
+    "filename": "/landing/hero.webp",
+    "title": "Marina beach, Chennai aerial view.jpg",
+    "author": "Saiphani02",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Marina_beach,_Chennai_aerial_view.jpg",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "capturedAt": "2025-02-11",
+    "location": "Marina Beach, Chennai, Tamil Nadu, India",
+    "description": "Aerial photograph of Marina Beach with food stalls at sunset.",
+    "modifications": "Resized and converted to WebP; responsive crop and dark green overlay in the interface."
+  },
+  {
+    "id": "police",
+    "filename": "/landing/police.webp",
+    "title": "India - Kolkata traffic cop - 3661.jpg",
+    "author": "Jorge Royan",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:India_-_Kolkata_traffic_cop_-_3661.jpg",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "capturedAt": "2005",
+    "location": "Kolkata, West Bengal, India",
+    "description": "A traffic constable directing taxis in Kolkata. The motion blur is part of the original photograph, not an animation.",
+    "modifications": "Resized and converted to WebP; responsive crop and caption shading in the interface."
+  },
+  {
+    "id": "municipal",
+    "filename": "/landing/municipal.webp",
+    "title": "Ripon Building panorama.jpg",
+    "author": "PlaneMad / Wikimedia Commons",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Ripon_Building_panorama.jpg",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5/",
+    "capturedAt": "2007-12-23",
+    "location": "Ripon Building, Chennai, Tamil Nadu, India",
+    "description": "The Ripon Building, headquarters of Chennai Corporation.",
+    "modifications": "Resized and converted to WebP; responsive crop and caption shading in the interface."
+  },
+  {
+    "id": "citizen",
+    "filename": "/landing/citizen.webp",
+    "title": "Chennai Metro Rail at Koyambedu.JPG",
+    "author": "KARTY JazZ",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Chennai_Metro_Rail_at_Koyambedu.JPG",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "capturedAt": "2015-07-05",
+    "location": "Koyambedu, Chennai, Tamil Nadu, India",
+    "description": "A Chennai Metro train at Koyambedu station.",
+    "modifications": "Resized and converted to WebP; responsive crop and caption shading in the interface."
+  }
+]
