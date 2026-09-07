@@ -64,7 +64,7 @@ function IssueWorkflow({ issue }: { issue: MunicipalIssue }) {
       <p className="operation-meta">Edit these sample notes for the walkthrough. The admin still needs to check the work.</p>
       <label>Work completed<textarea value={summary} onChange={e => setSummary(e.target.value)} disabled={busy} required /></label>
       <label>Road condition now<textarea value={condition} onChange={e => setCondition(e.target.value)} disabled={busy} required /></label>
-      <details className="submission-details"><summary>Sample completion photo</summary><figure className="resolution-evidence"><EvidenceImage src={completionEvidence(issue.kind)} alt={`${issue.defectType} reference photo`}/><figcaption>Reference photos · demo timeline</figcaption><EvidenceCredit src={completionEvidence(issue.kind)} note="Sample attachment for the demo workflow, not proof of work or completion at this site."/></figure></details>
+      <details className="submission-details"><summary>Sample completion photo</summary><figure className="resolution-evidence"><EvidenceImage src={completionEvidence(issue.kind)} alt={`${issue.defectType} reference photo`}/><figcaption>Reference photos · demo timeline</figcaption><EvidenceCredit src={completionEvidence(issue.kind)}/></figure></details>
       {emergencyActive && <p id={`emergency-block-${issue.id}`} role="status">Emergency team: {emergency.stage}. Finish their response and release the team before sending this work for approval.</p>}
       <div className="operation-actions"><button className="primary" disabled={busy || !assignment || !summary.trim() || !condition.trim() || emergencyActive} aria-describedby={emergencyActive ? `emergency-block-${issue.id}` : undefined}>Send for admin check</button></div>
     </form>}

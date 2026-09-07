@@ -61,7 +61,7 @@ export function ResolutionReview({ event, actor }: { event: EventRef; actor: str
       <p className="operation-meta">Submitted by {resolution.submittedBy} · {assignment && state.teams[assignment.teamId]?.name}<br/>{formatDemoDate(resolution.submittedAt)}</p>
       {resolution.evidence.map(evidence => {
         const reference = Boolean(getEvidenceSource(evidence.image));
-        return <figure className="resolution-evidence" key={evidence.id}><EvidenceImage src={evidence.image} alt={reference ? 'Completion reference photo' : evidence.description}/><figcaption>{reference ? 'Reference photos · demo timeline' : evidence.description}<br/>{formatDemoDate(reference ? resolution.submittedAt : evidence.capturedAt)}</figcaption><EvidenceCredit src={evidence.image} note="Reference attachment, not proof of work at this site. The displayed date is the demo submission time, not the source photo date."/></figure>;
+        return <figure className="resolution-evidence" key={evidence.id}><EvidenceImage src={evidence.image} alt={reference ? 'Completion reference photo' : evidence.description}/><figcaption>{reference ? 'Reference photos · demo timeline' : evidence.description}<br/>{formatDemoDate(reference ? resolution.submittedAt : evidence.capturedAt)}</figcaption><EvidenceCredit src={evidence.image}/></figure>;
       })}
     </details>
     {review.reviewedAt && <p className="operation-meta">{review.reviewer} · {formatDemoDate(review.reviewedAt)}<br/>{review.note}</p>}

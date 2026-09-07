@@ -15,6 +15,23 @@
 .police-workflow .compare img { display: block; width: 100%; height: auto; aspect-ratio: 16/10; object-fit: contain; }
 .police-workflow .compare figcaption { position: static; min-height: 34px; padding: 7px; font-size: 10px; white-space: normal; }
 .police-workflow .compare > div { align-self: center; padding: 0; }
+.police-workflow .watchlist-compare { grid-template-columns: minmax(0, 0.85fr) 20px minmax(0, 1.4fr); gap: 12px; }
+.police-workflow .watchlist-compare figure { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.watchlist-compare .comparison-media { --comparison-height: clamp(190px, 28vw, 350px); height: var(--comparison-height); display: flex; align-items: center; justify-content: center; background: #e7ebe6; }
+.police-workflow .watchlist-compare .comparison-media > img { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; }
+.evidence-scene { position: relative; width: fit-content; max-width: 100%; line-height: 0; }
+.police-workflow .watchlist-compare .evidence-scene img { width: auto; max-width: 100%; height: auto; max-height: var(--comparison-height); aspect-ratio: auto; }
+.evidence-subject-box { position: absolute; display: block; border: 2px solid #bdf56d; box-shadow: 0 0 0 1px #153a24, 0 0 0 100vmax #11271b30; pointer-events: none; }
+.evidence-scene { overflow: hidden; }
+.evidence-subject-box > span { position: absolute; top: 0; left: 0; padding: 4px 5px; background: #bdf56d; color: #163624; font-size: 9px; font-weight: 800; line-height: 1; letter-spacing: .06em; }
+.police-workflow .watchlist-compare figcaption { color: var(--ink); background: #f7f8f4; font-weight: 700; letter-spacing: .05em; }
+@media (max-width: 540px) {
+  .police-workflow .watchlist-compare { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .watchlist-compare .comparison-media { height: auto; min-height: 180px; }
+  .police-workflow .watchlist-compare .comparison-media > img { height: 230px; }
+  .police-workflow .watchlist-compare .evidence-scene img { max-height: none; }
+  .police-workflow .watchlist-compare .comparison-arrow { display: none; }
+}
 .watch-card img[src*="person-pass"] { object-position: 24% center; }
 .evidence-frame-picker { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; padding: 4px 0 10px; scroll-snap-type: x proximity; }
 .evidence-frame-picker button { flex: 0 0 115px; min-height: 100px; padding: 5px; border: 1px solid var(--line); background: #fff; text-align: left; scroll-snap-align: start; color: var(--ink); cursor: pointer; }

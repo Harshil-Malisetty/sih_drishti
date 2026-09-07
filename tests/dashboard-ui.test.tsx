@@ -17,7 +17,6 @@ import { selectIssues, selectPoliceSummary, selectWatchlist } from '../src/domai
 import { demoDate, formatDemoDate, formatDemoTime } from '../src/domain/time';
 import * as evidenceMedia from '../src/components/EvidenceMedia';
 import photoSources from '../public/evidence/photo-sources.json';
-import { fictionalPerson } from '../src/data/demo/fictionalPerson';
 import { PoliceHeader, PoliceAreaIntro } from '../src/components/PoliceHeader';
 import { PoliceJurisdictionProvider } from '../src/services/PoliceJurisdiction';
 import { policeJurisdictions } from '../src/domain/policeJurisdictions';
@@ -43,7 +42,7 @@ const categoryPhotos: Record<EventCategory, string> = {
   'school-crossing': '/evidence/school-stage-4.webp',
   traffic: '/evidence/water-completed.webp',
   incident: '/evidence/incident-frame-4.webp',
-  person: fictionalPerson.portrait,
+  person: '/evidence/person-reference.webp',
   vehicle: '/evidence/vehicle-reference.webp',
   project: '/evidence/pothole-repair.webp',
 };
@@ -55,8 +54,7 @@ const expectPhotoThumbnails = (html: string) => {
     expect(categories).toContain(category);
     expect(root.match(/<img\b/g)).toHaveLength(1);
     const path = root.match(/src="([^"]+)"/)?.[1];
-    if (category === 'person') expect(path).toBe(fictionalPerson.portrait);
-    else expect(photoSources.find(source => source.filename === path)?.kind).toBe('photo');
+    expect(photoSources.find(source => source.filename === path)?.kind).toBe('photo');
     expect(root).toContain('alt=""');
     expect(root).toContain('loading="lazy"');
     expect(root).not.toMatch(/<svg|<path|<image|<title|role="img"|data:image/);
@@ -64,13 +62,13 @@ const expectPhotoThumbnails = (html: string) => {
   return roots;
 };
 const read = (file: string) => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
-// Credits remain available in markup but are collapsed on the actual screen.
-const withoutCredits = (html: string) => html.replace(/<details class="evidence-credit">[\s\S]*?<\/details>/g, '');
+// Detailed provenance lives on the credits page, not inside workflow markup.
+const withoutCredits = (html: string) => html.replace(/<div class="evidence-credit">[\s\S]*?<\/div>/g, '');
 const expectCompactCredits = (html: string) => {
-  const credits = [...html.matchAll(/<details[^>]*class="evidence-credit"[^>]*>/g)];
+  const credits = [...html.matchAll(/<div class="evidence-credit">/g)];
   expect(credits.length).toBeGreaterThan(0);
-  for (const [tag] of credits) expect(tag).not.toMatch(/\bopen(?:=|\s|>)/);
-  expect(html).toMatch(/<summary>(Photo credits|Portrait details)<\/summary>/);
+  expect(html).toMatch(/href="\/evidence\/credits.html#[^"]+"[^>]*>Photo credits<\/a>/);
+  expect(html).not.toMatch(/Portrait details|original illustration|Production privacy|authentication is not implemented|Source date:/);
   const visible = withoutCredits(html);
   expect(visible).not.toMatch(/Source date:|Original capture|source-photo-caption|photo-source-caption|real-photo-gallery|photo-collection|documented repair|Fictional demo incident|Fictional missing-person demo case|Fictional flagged-vehicle demo case/i);
   return visible;
@@ -91,7 +89,7 @@ describe('dashboard category photographs', () => {
     expect(html).not.toMatch(/title=|aria-label=|<figcaption/);
   });
 
-  it.each(categories.filter(category => category !== 'person'))('maps %s to an existing WebP photograph with source provenance', category => {
+  it.each(categories)('maps %s to an existing WebP photograph with source provenance', category => {
     const path = categoryPhotos[category];
     const source = photoSources.find(item => item.filename === path);
     expect(source).toBeDefined();
@@ -107,13 +105,11 @@ describe('dashboard category photographs', () => {
     expect(bytes.toString('ascii', 8, 12)).toBe('WEBP');
   });
 
-  it('uses a named fictional portrait without presenting it as a reference photograph', () => {
-    expect(evidenceMedia.evidenceLabel(fictionalPerson.portrait)).toBe('Illustrated portrait');
-    expect(evidenceMedia.getEvidenceSource(fictionalPerson.portrait)).toBeUndefined();
-    const html = renderToStaticMarkup(<evidenceMedia.EvidenceCredit src={fictionalPerson.portrait}/>);
-    expect(html).toContain('Portrait details');
-    expect(html).toContain(fictionalPerson.description);
-    expect(html).not.toContain('Source date:');
+  it('uses a scene-derived photographic reference with compact external attribution', () => {
+    expect(evidenceMedia.evidenceLabel(categoryPhotos.person)).toBe('Reference photo');
+    expect(evidenceMedia.getEvidenceSource(categoryPhotos.person)?.relationship).toBe('subject-crop');
+    const html = renderToStaticMarkup(<evidenceMedia.EvidenceCredit src={categoryPhotos.person}/>);
+    expectCompactCredits(html);
     const watchlist = renderToStaticMarkup(<PolicePages page="watchlist" navigate={noop} exit={noop}/>);
     expect(watchlist).toContain('MP-0241 · Nila Raman');
     expect(watchlist).not.toContain('Fictional demo person');
@@ -123,6 +119,28 @@ describe('dashboard category photographs', () => {
     expect(new Set(Object.values(categoryPhotos)).size).toBe(categories.length);
     const images = categories.map(category => renderToStaticMarkup(<EventThumbnail category={category}/>).match(/src="([^"]+)"/)![1]);
     expect(images).toEqual(categories.map(category => categoryPhotos[category]));
+  });
+
+  it.each(['/evidence/person-pass-1.webp', '/evidence/person-pass-3.webp', '/evidence/vehicle-pass-2.webp'])('aligns the loaded scene overlay with its own source coordinates: %s', src => {
+    vi.mocked(useState).mockReturnValueOnce([src, noop]).mockReturnValueOnce(['', noop]);
+    const html = renderToStaticMarkup(<evidenceMedia.EvidenceScene src={src} alt="Highlighted subject" label="SUBJECT"/>);
+    const region = evidenceMedia.getEvidenceSource(src)!.subjectRegion!;
+    expect(html).toContain('class="evidence-subject-box" aria-hidden="true"');
+    for (const declaration of [`left:${region.x * 100}%`, `top:${region.y * 100}%`, `width:${region.width * 100}%`, `height:${region.height * 100}%`]) expect(html).toContain(declaration);
+  });
+
+  it('hides highlights before loading, after a scene switch, and on image failure', () => {
+    const src = '/evidence/person-pass-3.webp';
+    for (const loaded of ['', '/evidence/person-pass-1.webp']) {
+      vi.mocked(useState).mockReturnValueOnce([loaded, noop]).mockReturnValueOnce(['', noop]);
+      const html = renderToStaticMarkup(<evidenceMedia.EvidenceScene src={src} alt="Scene" label="PERSON"/>);
+      expect(html).toContain(`<img src="${src}"`);
+      expect(html).not.toContain('evidence-subject-box');
+    }
+    vi.mocked(useState).mockReturnValueOnce([src, noop]).mockReturnValueOnce([src, noop]);
+    const html = renderToStaticMarkup(<evidenceMedia.EvidenceScene src={src} alt="Scene" label="PERSON"/>);
+    expect(html).toContain('role="status"');
+    expect(html).not.toMatch(/<img|evidence-subject-box/);
   });
 
   it('shows a completed-condition photo for closed records and the right incident photo for each case', () => {
@@ -361,9 +379,9 @@ describe('police display timestamps', () => {
     if (screen === 'match') {
       expect(html).toContain('Possible missing-person match');
       const visible = expectCompactCredits(html);
-      expect(visible).toContain('Illustrated portrait · fictional profile');
+      expect(visible).toContain('Sample comparison');
       expect(visible).not.toContain('People/vehicles pictured');
-      expect(html).toContain(fictionalPerson.description);
+      expect(html).not.toContain('illustrated');
       expect(html).not.toMatch(/synthetic scenes|Synthetic demo data/);
       expect(map.markers).toEqual(match.observations!.map(item => ({
         id: item.id, type: 'watchlist', latitude: item.latitude, longitude: item.longitude,
@@ -405,10 +423,12 @@ describe('police display timestamps', () => {
       vi.mocked(useState).mockReturnValueOnce([observation.id, select]);
       const html = renderToStaticMarkup(<PolicePages page="watchlist" navigate={noop} exit={noop}/>);
       const visible = expectCompactCredits(html);
-      expect(visible).toContain('class="compare"');
+      expect(visible).toContain('compare watchlist-compare');
       expect(visible).toContain(`src="${match.referenceImage}"`);
-      expect(visible).toContain(`src="${observation.image}" alt="${subjectType === 'Missing Person' ? 'Nila Raman, scenario illustration' : 'Selected reference photo'}"`);
-      expect(visible).toContain('Demo observation trail');
+      expect(visible).toContain(`src="${observation.image}" alt="${subjectType === 'Missing Person' ? 'Group photo with the reference woman highlighted' : 'Street photo with the reference car highlighted'}"`);
+      expect(visible).toContain('class="evidence-scene"');
+      expect(visible).toContain('SUBJECT IN SCENE');
+      expect(visible).toContain('Observation trail');
       expect(visible).toContain(cleanDate(observation.timestamp));
       expect(visible.match(/aria-pressed="true"/g)).toHaveLength(1);
       expect(visible.match(/class="evidence-context"/g)).toHaveLength(1);

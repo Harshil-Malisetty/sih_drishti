@@ -1,7 +1,6 @@
 // Seed fixtures only. Screens/services read the normalized city store, never these exports.
 import type { Bus, Incident, PlannerRoadSegment, RoadDefect, TrafficObservation, WatchlistMatch } from '../../types';
 import { defectEvidence, evidenceSequences, policeEvidence } from './evidence';
-import { fictionalPerson } from './fictionalPerson';
 const evidenceRoad=policeEvidence.incident[4];
 const cityFrame=policeEvidence.vehicle[2];
 const personReference=policeEvidence.personReference;
@@ -41,7 +40,7 @@ for (const match of watchlist) {
  const sequence=match.subjectType==='Missing Person'?policeEvidence.person:policeEvidence.vehicle;
  match.image=sequence[2];
  match.referenceImage=match.subjectType==='Missing Person'?policeEvidence.personReference:policeEvidence.vehicleReference;
- if (match.subjectType==='Missing Person') match.subjectName=`MP-0241 · ${fictionalPerson.name}`;
+ if (match.subjectType==='Missing Person') match.subjectName='MP-0241 · Nila Raman';
  match.observations=match.observations?.map((observation,index)=>({...observation,image:sequence[index]}));
 }
 for (const defect of defects) {

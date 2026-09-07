@@ -414,7 +414,7 @@ function Detail({
           <span>{x.citizenReportId ? 'CITIZEN PHOTO' : 'REFERENCE PHOTO'}</span>
         </div> : <p className="operation-meta">No photo attached. Field assessment required.</p>}
         {image && !x.citizenReportId && <p className="evidence-context">Reference photos · demo timeline</p>}
-        <EvidenceCredit src={image} note="Dates, conditions and fleet observations are demo history. Reference photos are not captures of this record and do not verify work at this site."/>
+        <EvidenceCredit src={image}/>
         {hasProgression && (
           <button className="primary full evidence-story-link" onClick={lifecycle}>
             View {x.observations?.length} stages · {x.progressionTitle?.toLowerCase() || "condition progression"}

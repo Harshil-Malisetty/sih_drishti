@@ -8,7 +8,6 @@ import { selectCitizenContext, selectIssues, selectWatchlist } from '../src/doma
 import { cityStore } from '../src/services/city';
 import { municipalService, workflowService } from '../src/services';
 import sources from '../public/evidence/image-sources.json';
-import { fictionalPerson } from '../src/data/demo/fictionalPerson';
 
 const registry = new Map(sources.map(source => [source.filename, source]));
 const local = (url: string) => new URL(`../public${url}`, import.meta.url);
@@ -26,7 +25,7 @@ describe('evidence provenance and semantic coverage', () => {
   });
   it('has unique source entries and decodable, bounded local WebP assets with matching hashes', async () => {
     expect(registry.size).toBe(sources.length);
-    for (const source of sources) {
+    await Promise.all(sources.map(async source => {
       expect(source.sourceUrl).toBeTruthy();
       expect(source.license).toBeTruthy();
       expect(source.attribution).toBeTruthy();
@@ -39,8 +38,8 @@ describe('evidence provenance and semantic coverage', () => {
       expect(metadata.height).toBeLessThanOrEqual(720);
       expect(metadata.exif).toBeUndefined();
       expect(buffer.length).toBeLessThan(350_000);
-    }
-  });
+    }));
+  }, 15000);
 
   it('retains per-observation image slots and a separate completion image mapping', () => {
     const issues = selectIssues(createCitySeed());
@@ -59,30 +58,35 @@ describe('evidence provenance and semantic coverage', () => {
     expect(history).toEqual([...history].sort((a, b) => a - b));
   });
 
-  it('keeps fictional portraits separate from real vehicle reference photos and repeated sightings', async () => {
+  it('derives each subject reference and highlighted scene from one original photograph', () => {
     for (const match of selectWatchlist(createCitySeed())) {
       const frames = match.observations!.map(observation => observation.image!);
       expect(match.image).toBe(frames.at(-1));
       expect(match.busId).toBe(match.observations!.at(-1)!.busId);
-      if (match.subjectType === 'Missing Person') {
-        expect(match.subjectName).toBe(`MP-0241 · ${fictionalPerson.name}`);
-        expect(new Set([match.referenceImage, ...frames])).toEqual(new Set([fictionalPerson.portrait]));
-        expect(registry.has(fictionalPerson.portrait)).toBe(false);
-        const svg = readFileSync(local(fictionalPerson.portrait), 'utf8');
-        expect(svg).toContain('not a photograph or a depiction of a real person');
-        expect(svg).not.toMatch(/<script|<image|<foreignObject|href=/);
-        const metadata = await sharp(Buffer.from(svg)).metadata();
-        expect(metadata).toMatchObject({ format: 'svg', width: 480, height: 600 });
-        continue;
-      }
       expect(new Set([match.referenceImage, ...frames]).size).toBe(4);
       const photos = [match.referenceImage, ...frames].map(frame => registry.get(frame)!);
-      photos.forEach(source => {
-        expect(source.kind).toBe('photo');
-        expect(source.note).toMatch(/not.*(?:missing|flagged|sightings)/i);
-        expect(source.relationship).toBe('independent-reference');
+      expect(new Set(photos.map(source => source.originalUrl)).size).toBe(1);
+      expect(new Set(photos.map(source => source.sha256)).size).toBe(4);
+      const reference = photos[0];
+      expect(reference.relationship).toBe('subject-crop');
+      expect(reference.subjectRegion).toBeNull();
+      expect(reference.sourceCrop).toBeTruthy();
+      photos.slice(1).forEach(source => {
+        expect(source.relationship).toBe('scene-view');
+        expect(source.seriesId).toBe(reference.seriesId);
+        const region = source.subjectRegion!;
+        const crop = source.sourceCrop!;
+        expect(region.x).toBeGreaterThanOrEqual(0);
+        expect(region.y).toBeGreaterThanOrEqual(0);
+        expect(region.width).toBeGreaterThan(0);
+        expect(region.height).toBeGreaterThan(0);
+        expect(region.x + region.width).toBeLessThanOrEqual(1);
+        expect(region.y + region.height).toBeLessThanOrEqual(1);
+        expect(crop.x + region.x * crop.width).toBeCloseTo(reference.sourceCrop!.x, 8);
+        expect(crop.y + region.y * crop.height).toBeCloseTo(reference.sourceCrop!.y, 8);
+        expect(region.width * crop.width).toBeCloseTo(reference.sourceCrop!.width, 8);
+        expect(region.height * crop.height).toBeCloseTo(reference.sourceCrop!.height, 8);
       });
-      expect(new Set(photos.map(source => source.sha256)).size).toBe(2);
     }
   });
 

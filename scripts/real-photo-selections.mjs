@@ -6,8 +6,8 @@ const photo = (id, title, location, locationEvidence, usedFor, note) => ({
 });
 const repeat = (ids, title, location, locationEvidence, usedFor, note) => ids.map(id => photo(id, title, location, locationEvidence, usedFor, note));
 const monsoon = (id, number, flickrId) => photo(id, `India - Chennai - Monsoon - ${number} (${flickrId}).jpg`, 'Chennai, Tamil Nadu', 'Source title identifies India — Chennai — Monsoon.', 'Waterlogged street in Chennai');
-const vehicleNote = 'Reference vehicle photographed in Jamshedpur, India. The pictured vehicle is not flagged, stolen, or linked to wrongdoing. Reused views are not additional sightings.';
-const personNote = 'Anonymous pedestrian photograph at Chennai’s Broken Bridge. Nobody pictured is missing, wanted or identified by this demo. Reused images are not additional sightings.';
+const vehicleNote = 'One source photograph and its crops. The pictured vehicle is not flagged or linked to wrongdoing; scene views are not additional sightings.';
+const personNote = 'One source photograph and its crops. Nobody pictured is missing, wanted or identified; scene views are not additional sightings.';
 const barrierTitle = 'Highway road crash barrier in blind curve WTK20150913-DSC 3930.jpg';
 const barrierEvidence = 'Source caption: on the way from Haridwar to Uttarkashi; category NH 34 (India).';
 const crossingTitle = 'Zebra crossing at AU.JPG';
@@ -18,6 +18,21 @@ const schoolTitle = 'Tirtol, Odisha, India - panoramio.jpg';
 const schoolEvidence = 'Source caption identifies school crossing sign on Odisha state highway 12, Tirtol, India.';
 const openRoad = 'Rajiv Gandhi IT Expressway(OMR).jpg';
 const openRoadEvidence = 'Source caption identifies Rajiv Gandhi IT Expressway viewed from P.T.C. Quarters Foot Over Bridge; Chennai location.';
+
+// Regions are manually selected composition coordinates, not recognition results.
+// Derive the single-subject reference from the original, before downsampling.
+const pair = (kind, title, location, locationEvidence, usedFor, note, subject, views) => [
+  { ...photo(`${kind}-reference`, title, location, locationEvidence, usedFor, note), crop: subject, relationship: 'subject-crop', seriesId: `${kind}-comparison` },
+  ...views.map((crop, index) => ({ ...photo(`${kind}-pass-${index + 1}`, title, location, locationEvidence, usedFor, note), crop, subject, relationship: 'scene-view', seriesId: `${kind}-comparison` })),
+];
+export const watchlistPhotoSelections = [
+  ...pair('vehicle', 'Traffic in Gwalior, India.jpg', 'Gwalior, Madhya Pradesh', 'Source title and caption: Traffic in Gwalior, India.', 'Silver SUV with its visible front registration plate in traffic', vehicleNote,
+    { x: 0.313, y: 0.268, width: 0.179, height: 0.29 },
+    [null, { x: 0.16, y: 0.13, width: 0.60, height: 0.55 }, { x: 0.21, y: 0.20, width: 0.47, height: 0.44 }]),
+  ...pair('person', 'Women Walking at Ruins - Near Hampi Village - India.JPG', 'Hampi, Karnataka', 'Source caption: Women walking at temple near Hampi village, India. July 2008.', 'Woman in a patterned sari walking with a group', personNote,
+    { x: 0.761, y: 0.47, width: 0.075, height: 0.24 },
+    [{ x: 0.40, y: 0.30, width: 0.60, height: 0.50 }, { x: 0.52, y: 0.37, width: 0.43, height: 0.40 }, { x: 0.59, y: 0.41, width: 0.32, height: 0.34 }]),
+];
 
 export const realPhotoSelections = [
   photo('pothole-detected', 'Potholes in Bengaluru road.jpg', 'Bengaluru, Karnataka', 'Source caption and Roads in Bengaluru category.', 'Pothole in a Bengaluru road'),
@@ -45,7 +60,5 @@ export const realPhotoSelections = [
   photo('incident-plate', 'Registration plate on 1924 Rolls-Royce in Udaipur State.jpg', 'Udaipur, Rajasthan', 'Source title and caption identify a Rolls-Royce registration plate in Udaipur State.', 'Indian registration-plate reference', 'Separate Indian plate reference, not an OCR result or a crop of the demo incident.'),
   photo('motorcycle-candidate', 'Inde du Sud-0348.jpg', 'Kochi, Kerala', 'Source caption: Royal Enfield Bullet 350 Classic dans une rue de Cochin - Kerala - Inde.', 'Royal Enfield motorcycle parked in Kochi', 'Indian motorcycle reference, not evidence of unsafe riding by any pictured person.'),
   photo('road-debris', 'Clearing rocks from mountain road. Spiti.jpg', 'Spiti, Himachal Pradesh', 'Source title and caption identify rocks being cleared from a mountain road in Spiti.', 'Rock debris being cleared from an Indian road'),
-  ...repeat(['vehicle-reference','vehicle-pass-1'], "Maruti Suzuki's Vitara Brezza ZDi Plus compact SUV (Ank Kumar, Infosys Limited) 01.jpg", 'Jamshedpur, Jharkhand', 'Source caption: Ashiana Brahmanda, Jamshedpur, Jharkhand, India.', 'Maruti Suzuki front view in Jamshedpur', vehicleNote),
-  ...repeat(['vehicle-pass-2','vehicle-pass-3'], "Maruti Suzuki's Vitara Brezza ZDi Plus compact SUV (Ank Kumar, Infosys Limited) 02.jpg", 'Jamshedpur, Jharkhand', 'Source caption: Ashiana Brahmanda, Jamshedpur, Jharkhand, India.', 'Maruti Suzuki rear view in Jamshedpur', vehicleNote),
-  ...repeat(['person-reference','person-pass-1','person-pass-2','person-pass-3'], 'The lonely walk (4278047231).jpg', 'Broken Bridge, Adyar, Chennai', 'Source caption identifies the Broken Bridge at the mouth of the Adyar River in Chennai, India.', 'Pedestrian at Chennai’s Broken Bridge', personNote),
+  ...watchlistPhotoSelections,
 ];

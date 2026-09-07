@@ -1,11 +1,9 @@
 import { useState, type ImgHTMLAttributes } from 'react';
 import sources from '../../public/evidence/image-sources.json';
-import { fictionalPerson } from '../data/demo/fictionalPerson';
 
 const sourceByPath = new Map(sources.map(source => [source.filename, source]));
 export const getEvidenceSource = (src: string) => sourceByPath.get(src);
 export function evidenceLabel(src: string) {
-  if (src === fictionalPerson.portrait) return 'Illustrated portrait';
   const source = sourceByPath.get(src);
   return source ? 'Reference photo' : src.startsWith('data:image/') ? 'Submitted photo' : 'Unverified image';
 }
@@ -17,28 +15,23 @@ export function EvidenceImage({ src = '', alt, ...props }: ImgHTMLAttributes<HTM
   return <img src={src} alt={alt} decoding="async" {...props} onError={() => setFailed(src)}/>;
 }
 
-export function EvidenceCredit({ src, additionalSources = [], note }: { src: string; additionalSources?: string[]; note?: string }) {
-  if (src === fictionalPerson.portrait) return <details className="evidence-credit">
-    <summary>Portrait details</summary>
-    <p>{fictionalPerson.description}</p>
-    <p>{fictionalPerson.note}</p>
-    {note && <p>{note}</p>}
-  </details>;
+// Position the overlay against the intrinsic image, never against a letterboxed frame.
+export function EvidenceScene({ src, alt, label }: { src: string; alt: string; label: string }) {
+  const [loaded, setLoaded] = useState('');
+  const [failed, setFailed] = useState('');
+  const region = sourceByPath.get(src)?.subjectRegion;
+  if (!src || failed === src) return <span className="evidence-unavailable" role="status">Evidence image unavailable.</span>;
+  return <div className="evidence-scene">
+    <img src={src} alt={alt} decoding="async" onLoad={() => setLoaded(src)} onError={() => setFailed(src)}/>
+    {region && loaded === src && <span className="evidence-subject-box" aria-hidden="true" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%` }}><span>{label}</span></span>}
+  </div>;
+}
+
+export function EvidenceCredit({ src, additionalSources = [] }: { src: string; additionalSources?: string[] }) {
   const credits = [...new Set([src, ...additionalSources])].flatMap(path => {
     const source = sourceByPath.get(path);
     return source ? [source] : [];
   });
   if (!credits.length) return null; // User-uploaded media has no invented attribution.
-  return <details className="evidence-credit">
-    <summary>Photo credits</summary>
-    {note && <p>{note}</p>}
-    {credits.map(source => <div key={source.filename}>
-      <p><strong>{source.title}</strong> · {source.usedFor}</p>
-      <p>Source date: {source.captureDate || 'Not supplied by source'}. Not the demo event time.</p>
-      <p>{source.attribution} · <a href={source.licenseUrl} target="_blank" rel="noreferrer">{source.license}</a> · <a href={source.sourceUrl} target="_blank" rel="noreferrer">Source</a></p>
-      <p>{source.note}</p>
-      <p>{source.modifications}</p>
-    </div>)}
-    <a href="/evidence/credits.html" target="_blank" rel="noreferrer">All photograph credits</a>
-  </details>;
+  return <div className="evidence-credit"><a href={`/evidence/credits.html#${credits[0].id}`} target="_blank" rel="noreferrer">Photo credits</a></div>;
 }
