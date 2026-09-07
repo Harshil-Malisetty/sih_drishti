@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@fontsource/dm-sans/800.css';
 @import './styles-pages.css';@import './styles-map.css';@import './styles-police-map.css';
 
 @custom-variant dark (&:is(.dark *));
@@ -36,3 +37,5 @@
 	--color-chart-scale-05:var(--chart-scale-05);
 	--color-chart-scale-pattern-color:var(--chart-scale-pattern-color);
 }
+
+.landing header strong,.sign-in header strong{font-family:'DM Sans',Inter,'Segoe UI',sans-serif}
