@@ -110,6 +110,8 @@ export function anchorCityHistory(seed: CityState, anchor: string): CityState {
     if (project.publishedAt) project.publishedAt = shift(project.publishedAt);
   }
   for (const report of Object.values(state.citizenReports)) report.submittedAt = shift(report.submittedAt);
+  for (const detection of Object.values(state.edgeDetections)) detection.receivedAt = shift(detection.receivedAt);
+  for (const review of Object.values(state.detectionReviews)) review.reviewedAt = shift(review.reviewedAt);
   state.now = anchor;
   return state;
 }

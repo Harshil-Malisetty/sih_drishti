@@ -1,4 +1,5 @@
 import type { Bus, CitizenRoute, Incident, PlannerRoadSegment, RoadDefect, Severity, TrafficObservation, WatchlistMatch } from './index';
+import type { DetectionReview, EdgeDetection } from './detectionReview';
 
 // IDs are stable fixture/API identifiers. Display names must never be used as foreign keys.
 export interface Road { id: string; name: string }
@@ -16,7 +17,7 @@ export interface CityTrafficObservation extends TrafficObservation {
   baselineSource: string;
 }
 export interface CityBus extends Bus { roadSegmentId: string; observedAt: string }
-export interface CityIncident extends Incident { roadSegmentId: string; observedAt: string; resolvedAt?: string; emergencyDispatchId?: string; resolutionSummary?: string; citizenReportId?: string; citizenDescription?: string }
+export interface CityIncident extends Incident { roadSegmentId: string; observedAt: string; resolvedAt?: string; emergencyDispatchId?: string; resolutionSummary?: string; citizenReportId?: string; citizenDescription?: string; edgeDetectionId?: string }
 export type IssueKind = 'pothole' | 'waterlogging' | 'obstruction' | 'zebra-crossing' | 'divider' | 'signboard' | 'guardrail' | 'school-crossing';
 export interface Department { id: string; name: string; role: 'municipal' | 'police' | 'response' }
 export interface Team { id: string; departmentId: string; name: string }
@@ -27,6 +28,7 @@ export type WorkflowStage = 'Detected' | 'Qualified' | 'Assigned' | 'Acknowledge
 export interface WorkflowEntry { at: string; action: string; actor: string }
 export interface MunicipalIssue extends RoadDefect {
   citizenReportId?: string;
+  edgeDetectionId?: string;
   kind: IssueKind;
   roadSegmentId: string;
   departmentId: string;
@@ -128,6 +130,8 @@ export interface CityState {
   emergencyDispatches: Record<string, EmergencyDispatch>;
   projects: Record<string, MunicipalProject>; journey: DemoJourney;
   citizenReports: Record<string, CitizenReport>;
+  edgeDetections: Record<string, EdgeDetection>;
+  detectionReviews: Record<string, DetectionReview>;
 }
 export interface CitizenJourney extends Omit<CitizenRoute, 'currentMinutes' | 'alternativeMinutes'> {
   currentMinutes: number | null; alternativeMinutes: number | null;

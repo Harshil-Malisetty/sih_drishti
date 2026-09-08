@@ -6,6 +6,7 @@ import { PoliceMapView, type PoliceGeoMarker, type PoliceMapCamera } from '../co
 import { PoliceTrafficControl } from '../components/PoliceTrafficControl';
 import { EmergencyDispatchPanel } from '../components/EmergencyDispatchPanel';
 import { CitizenReportInbox } from '../components/CitizenReports';
+import { AIReviewWorkbench } from '../components/AIReviewWorkbench';
 import { useOperation } from '../components/operations';
 import { notifyAction } from '../components/ActionFeedback';
 import { ConfidenceIndicator, FilterBar, MetricCard, PageIntro, SectionHeader, SeverityBadge, Surface } from '../components/ui';
@@ -102,6 +103,7 @@ function PoliceWorkspace({page,navigate,exit}:PolicePagesProps){
  return <><AppHeader title="Police Command & Control" onExit={exit}/><main>
   {page==='overview'&&<PoliceOverview go={next=>{if(next==='map')setMapSelection(buses.find(bus=>bus.status==='Sensing')?.id||'');navigate(next)}} open={id=>open({kind:'incident',id})} openMatch={id=>open({kind:'match',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
   {page==='incidents'&&<IncidentList open={id=>open({kind:'incident',id})} openTraffic={id=>open({kind:'traffic',id})}/>}
+  {page==='review'&&<AIReviewWorkbench role="police" scope={jurisdictionId} openRecord={event=>open({kind:'incident',id:event.id})}/>}
   {page==='watchlist'&&<Watchlist open={id=>open({kind:'match',id})}/>}
   {page==='map'&&<PoliceOperationalMap cameras={mapCameras.current} selected={mapSelection} onSelect={setMapSelection} open={openMapRecord}/>}
  </main></>;

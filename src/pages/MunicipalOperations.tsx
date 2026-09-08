@@ -44,6 +44,7 @@ import { useOperation } from "../components/operations";
 import { formatDemoDate, formatDemoTime } from "../domain/time";
 import { EvidenceCredit, EvidenceImage } from "../components/EvidenceMedia";
 import { PlannerMap, type PlannerCamera } from "../components/PlannerMap";
+import { AIReviewWorkbench } from "../components/AIReviewWorkbench";
 
 type View =
   | { kind: "detail" | "lifecycle"; id: string }
@@ -133,6 +134,7 @@ export default function MunicipalOperations({
         onExit={exit}
       />
       <main>
+        {page === "review" && <AIReviewWorkbench role="municipal" openRecord={event => open({ kind: "detail", id: event.id })} />}
         {page === "overview" && (
           <Overview go={navigate} showIssues={showIssues} open={openItem} openTask={openTask} />
         )}{" "}

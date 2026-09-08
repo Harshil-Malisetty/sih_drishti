@@ -5,8 +5,12 @@ import { emergencyEligible, selectEmergency } from './operations';
 import { allocateEmergencyStation } from './emergencyAllocation';
 import { reportCategories, reportRecipient, type ReportRecipient } from './citizenReports';
 import { anchorCityHistory, browserClock, formatDemoTime, timestampMillis, type CityClock } from './time';
+import type { DetectionReviewInput } from '../types/detectionReview';
+import type { IssueKind } from '../types/city';
+import { detectionLabels, reviewDepartments, validateDetectionReview } from './detectionReview';
 
 export type CityCommand =
+  | { type: 'reviewDetection'; input: DetectionReviewInput }
   | { type: 'submitCitizenReport'; input: CitizenReportInput }
   | { type: 'resolveCitizenIncident'; incidentId: string; actor: string; note: string }
   | { type: 'reviewCitizenReport'; reportId: string; decision: 'Accepted' | 'Dismissed'; note: string; reviewerRole?: ReportRecipient }
@@ -66,6 +70,51 @@ export function reduceCity(state: CityState, command: CityCommand, now = state.n
     : new Date(Math.max(timestampMillis(now), timestampMillis(state.now) + 1)).toISOString();
   const id = (prefix: string) => `${prefix}-${String(sequence).padStart(4, '0')}`;
   switch (command.type) {
+    case 'reviewDetection': {
+      const input = command.input;
+      const detection = validateDetectionReview(next, input);
+      const reviewId = id('HITL');
+      const review = { ...structuredClone(input), id: reviewId, reviewedAt: next.now, reviewer: input.reviewer.trim(), note: input.note.trim() };
+      next.detectionReviews[reviewId] = review;
+      if (input.decision === 'Rejected' || input.decision === 'Needs verification') break;
+      const segment = required(next.roadSegments[detection.roadSegmentId], 'Unknown detection location');
+      const [latitude, longitude] = required(segment.points[Math.floor(segment.points.length / 2)], 'Detection location has no geometry');
+      const image = detection.frames.find(frame => input.frames.some(assessment => assessment.frameId === frame.id && assessment.verdict === 'Supports'))!.image;
+      const title = detectionLabels[input.category];
+      const actor = input.reviewer.trim();
+      const action = `AI candidate ${detection.id} ${input.decision.toLowerCase()} by human review`;
+      if (detection.role === 'municipal') {
+        const issueId = id('ISS-AI');
+        const kind = input.category as IssueKind;
+        const departmentId = required(reviewDepartments[kind], 'Unsupported municipal detection category');
+        next.issues[issueId] = {
+          id: issueId, edgeDetectionId: detection.id, kind, roadSegmentId: segment.id, departmentId,
+          workflowStage: 'Qualified', defectType: title,
+          category: kind === 'waterlogging' ? 'Water' : ['signboard', 'guardrail'].includes(kind) ? 'Infrastructure' : 'Roads',
+          severity: input.severity, status: 'Open', location: segment.name, latitude, longitude,
+          firstSeen: detection.receivedAt, lastSeen: detection.receivedAt, growthPercentage: 0,
+          detectionCount: 1, busIds: [detection.busId], route: next.buses[detection.busId]?.route || '', image,
+          currentCondition: `${title} confirmed for field assessment.`, recommendedAction: 'Assign the responsible field team',
+          history: [{ at: detection.receivedAt, action: 'Demo edge candidate received; held for human review', actor: detection.busId }, { at: next.now, action, actor }],
+        };
+        next.detectionReviews[reviewId].event = { kind: 'municipal', id: issueId };
+      } else {
+        const incidentId = id('INC-AI');
+        next.incidents[incidentId] = {
+          id: incidentId, edgeDetectionId: detection.id, type: title, severity: input.severity, status: 'Open',
+          roadSegmentId: segment.id, observedAt: detection.receivedAt, timestamp: detection.receivedAt,
+          location: segment.name, latitude, longitude, busId: detection.busId, route: next.buses[detection.busId]?.route || '',
+          vehicleType: 'Unknown', registrationNumber: '', registrationConfidence: 0,
+          detectionSource: 'Onboard Edge', image,
+          track: { frameCount: detection.frames.length, currentFrame: 1, stages: [
+            { timestamp: detection.receivedAt, label: 'Candidate received', detail: detection.provenance },
+            { timestamp: next.now, label: 'Human assessment', detail: `${action}. ${actor}. Not a finding of fault or identity.` },
+          ] },
+        };
+        next.detectionReviews[reviewId].event = { kind: 'incident', id: incidentId };
+      }
+      break;
+    }
     case 'submitCitizenReport': {
       const input = command.input;
       const segment = required(next.roadSegments[input.roadSegmentId], 'Choose a supported road location');

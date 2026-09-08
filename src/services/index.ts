@@ -11,6 +11,10 @@ const query = <T,>(read: () => T): Promise<T> => Promise.resolve().then(() => st
 const command = (action: CityCommand) => Promise.resolve().then(() => cityStore.dispatch(action));
 // Build and execute without yielding, so guards and commands use the same snapshot.
 const batch = (build: (state: CityState) => readonly CityCommand[]) => Promise.resolve().then(() => cityStore.dispatchBatch(build(cityStore.getSnapshot())));
+export const detectionReviewService = {
+ review: (input: Extract<CityCommand, { type: 'reviewDetection' }>['input']) => command({ type: 'reviewDetection', input })
+	.then(state => structuredClone(Object.values(state.detectionReviews).filter(review => review.detectionId === input.detectionId).at(-1)!)),
+};
 export const incidentsService = {
 	resolveCitizenReport: (incidentId: string, actor: string, note: string) => command({ type: 'resolveCitizenIncident', incidentId, actor, note }).then(state => structuredClone(state.incidents[incidentId])),
 	getCitizenReports: () => query(() => Object.values(cityStore.getSnapshot().citizenReports).filter(report => reportRecipient(report.category) === 'police')),
