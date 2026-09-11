@@ -1,6 +1,6 @@
 import { FPS, TOTAL_FRAMES, WIDTH, HEIGHT, SCENES, normalizeFrame, sampleFrame, makeCaptions, captionAt, formatTime } from './timeline.js';
-import { createScenes } from './scenes.js';
-import { C } from './art.js';
+import { createScenes } from './explainer.js';
+import { C } from './illustration.js';
 
 const canvas = document.querySelector('#film');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -16,6 +16,8 @@ let frame = normalizeFrame(Number(params.get('frame') ?? Number(params.get('t') 
 let captionsEnabled = params.get('subtitles') !== '0';
 let playing = false, raf = 0, epoch = 0, epochFrame = 0;
 let captions = [], dialogue = [];
+const durationLabel = formatTime(TOTAL_FRAMES);
+controls.seek.max = String(TOTAL_FRAMES - 1);
 
 export function wrapCaption(text, maxWidth = 1630) {
   ctx.font = '500 36px "Film Sans"';
@@ -28,7 +30,7 @@ export function wrapCaption(text, maxWidth = 1630) {
 function paintCaption(cue) {
   if (!cue) return;
   const lines = wrapCaption(cue.text);
-  art.rect(100, 938, 1720, 114, '#102d3cf2', 14);
+  art.rect(100, 938, 1720, 114, '#10142af2', 14);
   art.text(cue.speaker.toUpperCase(),960,966,17,C.mint,800,'center');
   lines.forEach((line,i)=>art.text(line,960,(lines.length===1?1017:998)+i*40,36,C.white,500,'center'));
 }
@@ -56,8 +58,8 @@ export function renderFrame(requestedFrame, options = {}) {
   return { frame, scene:scene.id, subtitles:show, width:WIDTH, height:HEIGHT };
 }
 function updateControls(){
-  controls.seek.value=String(frame);controls.seek.setAttribute('aria-valuetext',`${formatTime(frame)} of 01:30`);
-  controls.time.textContent=`${formatTime(frame)} / 01:30`;
+  controls.seek.value=String(frame);controls.seek.setAttribute('aria-valuetext',`${formatTime(frame)} of ${durationLabel}`);
+  controls.time.textContent=`${formatTime(frame)} / ${durationLabel}`;
   controls.play.innerHTML=playing?'Ⅱ <span>Pause</span>':'▶ <span>Play</span>';
   controls.play.setAttribute('aria-label',playing?'Pause':'Play');
   controls.captions.checked=captionsEnabled;

@@ -11,7 +11,7 @@ import { FPS, TOTAL_FRAMES, WIDTH, HEIGHT, makeCaptions, makeSrt, makeCueSheet }
 const options = Object.fromEntries(process.argv.slice(2).map(arg => { const [key,...rest]=arg.replace(/^--/,'').split('=');return [key,rest.join('=')||true]; }));
 const out = resolve(options.out || resolve(ROOT,'exports/drishti-canvas'));
 const frameCount = Number(options.frames || TOTAL_FRAMES);
-if(!Number.isInteger(frameCount)||frameCount<1||frameCount>TOTAL_FRAMES)throw new Error('--frames must be an integer from 1 to 2700');
+if(!Number.isInteger(frameCount)||frameCount<1||frameCount>TOTAL_FRAMES)throw new Error(`--frames must be an integer from 1 to ${TOTAL_FRAMES}`);
 const variants=options.variant ? [options.variant] : ['clean','subtitled'];
 if(!variants.every(v=>['clean','subtitled'].includes(v)))throw new Error('--variant must be clean or subtitled');
 const encoder=process.env.FFMPEG_PATH||ffmpeg;
@@ -70,7 +70,7 @@ try{
     await writeFile(resolve(out,`ffprobe-${e.variant}.json`),JSON.stringify(metadata,null,2)+'\n');
     outputs.push({variant:e.variant,path:final,bytes:(await stat(final)).size,frames:frameCount,duration:frameCount/FPS});
   }
-  const sources={};for(const file of ['index.html','script.js','scenes.js','art.js','timeline.js','narration.json','styles.css','assets/dm-sans-500.woff2','assets/dm-sans-800.woff2'])sources[file]=createHash('sha256').update(await readFile(resolve(FILM_ROOT,file))).digest('hex');
+  const sources={};for(const file of ['index.html','script.js','explainer.js','illustration.js','model.js','timeline.js','narration.json','styles.css','assets/dm-sans-500.woff2','assets/dm-sans-800.woff2'])sources[file]=createHash('sha256').update(await readFile(resolve(FILM_ROOT,file))).digest('hex');
   await writeFile(resolve(out,'render-manifest.json'),JSON.stringify({renderer:'Plain HTML5 Canvas 2D + JavaScript',capture:'Puppeteer per-frame PNG screenshot → ffmpeg image2pipe',browser:await browser.version(),node:process.version,viewport:{width:WIDTH,height:HEIGHT,deviceScaleFactor:1},fps:FPS,frameCount,audio:false,partial:frameCount!==TOTAL_FRAMES,elapsedSeconds:(Date.now()-start)/1000,outputs,sources},null,2)+'\n');
   console.log(JSON.stringify(outputs,null,2));
 }finally{

@@ -1,16 +1,19 @@
 export const FPS = 30;
-export const TOTAL_FRAMES = 2700;
+export const TOTAL_FRAMES = 5400;
 export const WIDTH = 1920;
 export const HEIGHT = 1080;
 export const SCENES = [
-  ['opening', 'A city in fragments', 0, 4],
-  ['coverage', 'Beyond the fixed camera', 4, 14],
-  ['investigation', 'Connect the observations', 14, 27],
-  ['maintenance', 'Before a complaint', 27, 40],
-  ['crossings', 'Every crossing matters', 40, 49],
-  ['planning', 'Plan before the barrier', 49, 59],
-  ['citizen', 'A map that keeps up', 59, 73],
-  ['connected', 'One connected view', 73, 90],
+  ['opening', 'What if roads could remember?', 0, 7],
+  ['coverage', 'One observation', 7, 21],
+  ['investigation', 'Connect the evidence', 21, 38],
+  ['maintenance', 'The lifecycle graph', 38, 61],
+  ['waterlogging', 'A recurring problem', 61, 73],
+  ['infrastructure', 'Not just potholes', 73, 91],
+  ['traffic', 'When traffic is unusual', 91, 106],
+  ['planning', 'Calculate the ripple', 106, 130],
+  ['citizen', 'What changes your route?', 130, 148],
+  ['emergency', 'Which station is nearest?', 148, 160],
+  ['connected', 'One connected view', 160, 180],
 ].map(([id, title, start, end], index) => ({ id, title, start: start * FPS, end: end * FPS, index }));
 export const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 export const ease = x => { x = clamp(x); return x * x * (3 - 2 * x); };
@@ -22,23 +25,12 @@ export function sampleFrame(frame) {
   const scene = SCENES.find(s => f >= s.start && f < s.end);
   return { frame: f, scene, time: (f - scene.start) / FPS, globalTime: f / FPS };
 }
-export function sampleWorkflow(frame) {
-  const { scene: { id }, time: t } = sampleFrame(frame);
-  return {
-    candidate: id === 'investigation' && t >= 4,
-    reviewed: id === 'investigation' && t >= 10,
-    repaired: id === 'maintenance' && t >= 9 || id === 'crossings' && t >= 7,
-    verified: id === 'maintenance' && t >= 11.5 || id === 'crossings' && t >= 8.2,
-    approved: id === 'planning' && t >= 8.5 || id === 'citizen' && t >= 10,
-    published: id === 'citizen' && t >= 11,
-  };
-}
 // JSON accepts phrase strings (distributed by word count) or explicit {text,start,end}
 // phrase timestamps in absolute seconds from a later recorded narration alignment.
 export function makeCaptions(dialogue) {
   let previousEnd = 0;
   return dialogue.flatMap(cue => {
-    if (!Number.isFinite(cue.start) || !Number.isFinite(cue.end) || cue.start < previousEnd || cue.end <= cue.start || cue.end > 90 || !cue.speaker || !cue.phrases?.length) throw new Error('Invalid or overlapping narration cue');
+    if (!Number.isFinite(cue.start) || !Number.isFinite(cue.end) || cue.start < previousEnd || cue.end <= cue.start || cue.end > TOTAL_FRAMES / FPS || !cue.speaker || !cue.phrases?.length) throw new Error('Invalid or overlapping narration cue');
     previousEnd = cue.end;
     const explicit = typeof cue.phrases[0] === 'object';
     if (!cue.phrases.every(p => typeof p === (explicit ? 'object' : 'string'))) throw new Error('Mixed phrase formats');
@@ -64,4 +56,4 @@ export function srtTime(frame) {
   return `00:${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`;
 }
 export const makeSrt = captions => captions.map((c, i) => `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.speaker}: ${c.text}\n`).join('\n');
-export const makeCueSheet = dialogue => '# Drishti — four-speaker recording cues\n\n90 seconds · 30 fps · Silent masters; no voiceover or music. Timings are rehearsal timings, not alignment to a recorded voice.\n\n' + dialogue.map(c => `## ${srtTime(Math.round(c.start * FPS))} → ${srtTime(Math.round(c.end * FPS))} · ${c.speaker}\n\n${c.phrases.map(p => typeof p === 'string' ? p : p.text).join(' ')}\n`).join('\n');
+export const makeCueSheet = dialogue => `# Drishti — four-speaker recording cues\n\n${TOTAL_FRAMES / FPS} seconds · 30 fps · Silent masters; no voiceover or music. Timings are rehearsal timings, not alignment to a recorded voice.\n\n` + dialogue.map(c => `## ${srtTime(Math.round(c.start * FPS))} → ${srtTime(Math.round(c.end * FPS))} · ${c.speaker}\n\n${c.phrases.map(p => typeof p === 'string' ? p : p.text).join(' ')}\n`).join('\n');

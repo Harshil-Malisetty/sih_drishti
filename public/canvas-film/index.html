@@ -11,26 +11,26 @@
   <main>
     <header class="page-header">
       <a href="/" aria-label="Return to Drishti">DRISHTI<span>ORIGINAL ANIMATED EXPLAINER</span></a>
-      <span>90 SECONDS · FOUR VOICES · ONE CITY</span>
+      <span>3 MINUTES · ONE IDEA AT A TIME</span>
     </header>
     <section class="player" aria-label="Drishti animated film">
-      <div id="stage"><canvas id="film" width="1920" height="1080" aria-label="Illustrated Chennai: observation, human review, repair, planning and citizen information"></canvas></div>
+      <div id="stage"><canvas id="film" width="1920" height="1080" aria-label="Drishti explained with close-up illustrations, condition-over-time graphs, traffic comparisons and a small road-capacity calculation"></canvas></div>
       <div class="controls">
         <div class="transport">
           <button id="play" type="button" aria-label="Play">▶ <span>Play</span></button>
           <button id="restart" type="button">↺ Restart</button>
-          <output id="time" for="seek">00:00 / 01:30</output>
+          <output id="time" for="seek">00:00 / 03:00</output>
           <label class="captions"><input id="captions" type="checkbox" checked> Subtitles</label>
           <button id="fullscreen" type="button">Fullscreen</button>
         </div>
         <label class="sr-only" for="seek">Film frame</label>
-        <input id="seek" type="range" min="0" max="2699" value="0" step="1" aria-valuetext="00:00 of 01:30">
+        <input id="seek" type="range" min="0" max="5399" value="0" step="1" aria-valuetext="00:00 of 03:00">
         <nav id="chapters" aria-label="Film chapters"></nav>
       </div>
     </section>
     <section class="notes">
-      <div><span class="eyebrow">PRODUCT VISION + WORKING PROTOTYPE</span><h1>A city shouldn’t have to wait.</h1><p>An original, silent animated short. Every car, footstep, camera move and caption is sampled from a fixed 2,700-frame timeline. No React, screen recording, music or synthesized voices.</p></div>
-      <div><p>AI detection, candidate matching and repeat-pass checks are illustrative. Traffic outputs are demo scenario estimates; approvals and identity review remain human decisions.</p><details><summary>Four-speaker rehearsal script</summary><div id="cue-sheet"></div></details><p id="status" role="status">Preparing local artwork and type…</p></div>
+      <div><span class="eyebrow">A GRAPH-LED, ORIGINAL EXPLAINER</span><h1>See the story behind the numbers.</h1><p>One road. One observation. One calculation at a time. A three-minute Canvas film explains Drishti through growing condition graphs, focused problem illustrations and the prototype’s actual demo mathematics—not a city-wide dashboard tour.</p></div>
+      <div><p>Condition indices are stored demo values, not AI measurements. Candidate matching is illustrative; traffic calculations are scenario estimates. Silent rehearsal with captions: record the four voices later.</p><details><summary>Rewritten four-speaker narration</summary><div id="cue-sheet"></div></details><p id="status" role="status">Preparing local artwork and type…</p></div>
     </section>
   </main>
   <script type="module" src="script.js"></script>
