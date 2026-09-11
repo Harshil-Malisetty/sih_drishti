@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#122e38">
+  <title>Drishti — One connected view · Canvas film</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <a href="/" aria-label="Return to Drishti">DRISHTI<span>ORIGINAL ANIMATED EXPLAINER</span></a>
+      <span>90 SECONDS · FOUR VOICES · ONE CITY</span>
+    </header>
+    <section class="player" aria-label="Drishti animated film">
+      <div id="stage"><canvas id="film" width="1920" height="1080" aria-label="Illustrated Chennai: observation, human review, repair, planning and citizen information"></canvas></div>
+      <div class="controls">
+        <div class="transport">
+          <button id="play" type="button" aria-label="Play">▶ <span>Play</span></button>
+          <button id="restart" type="button">↺ Restart</button>
+          <output id="time" for="seek">00:00 / 01:30</output>
+          <label class="captions"><input id="captions" type="checkbox" checked> Subtitles</label>
+          <button id="fullscreen" type="button">Fullscreen</button>
+        </div>
+        <label class="sr-only" for="seek">Film frame</label>
+        <input id="seek" type="range" min="0" max="2699" value="0" step="1" aria-valuetext="00:00 of 01:30">
+        <nav id="chapters" aria-label="Film chapters"></nav>
+      </div>
+    </section>
+    <section class="notes">
+      <div><span class="eyebrow">PRODUCT VISION + WORKING PROTOTYPE</span><h1>A city shouldn’t have to wait.</h1><p>An original, silent animated short. Every car, footstep, camera move and caption is sampled from a fixed 2,700-frame timeline. No React, screen recording, music or synthesized voices.</p></div>
+      <div><p>AI detection, candidate matching and repeat-pass checks are illustrative. Traffic outputs are demo scenario estimates; approvals and identity review remain human decisions.</p><details><summary>Four-speaker rehearsal script</summary><div id="cue-sheet"></div></details><p id="status" role="status">Preparing local artwork and type…</p></div>
+    </section>
+  </main>
+  <script type="module" src="script.js"></script>
+</body>
+</html>

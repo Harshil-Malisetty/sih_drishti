@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, CheckCheck, ChevronLeft, ChevronRight, Eye, Pause, Play, ScanLine } from 'lucide-react';
+import { ArrowRight, Check, CheckCheck, ChevronLeft, ChevronRight, Eye, Pause, Play, ScanLine } from 'lucide-react';
 import type { CityState, EventRef } from '../types/city';
 import type { DetectionCategory, DetectionDecision, DetectionFrame, DetectionReview, EdgeDetection, FrameVerdict, ReviewRole } from '../types/detectionReview';
 import type { Severity } from '../types';
@@ -75,15 +75,15 @@ export function AIReviewWorkbench({ role, scope = 'all', openRecord }: {
         </button>)}
         {!queue.length && <p className="review-empty">No candidates in this view.</p>}
       </aside>
-      {active ? <CandidateReview key={`${active.id}-${latestDetectionReview(state, active.id)?.id || 'new'}`} state={state} detection={active} scope={scope} onSaved={saved} advance={advance} setAdvance={setAdvance} openRecord={openRecord} focusVersion={focusVersion}/>
+      {active ? <CandidateReview key={`${active.id}-${latestDetectionReview(state, active.id)?.id || 'new'}`} state={state} detection={active} scope={scope} onSaved={saved} advance={advance} setAdvance={setAdvance} openRecord={openRecord} focusVersion={focusVersion} onFocusHandled={() => setFocusVersion(0)}/>
         : <section className="review-complete"><CheckCheck size={32}/><h2>{pending === 0 && status === 'Pending' ? 'Pending queue complete' : 'No matching candidates'}</h2><p>{held ? `${held} candidate(s) still need verification. Held items are not approved.` : 'Change the filters or inspect the review history.'}</p><button className="secondary" onClick={() => { setStatus(held ? 'Needs verification' : 'All'); setCategory('all'); setConfidence('all'); setSearch(''); }}>View {held ? 'verification queue' : 'all candidates'}</button></section>}
     </div>
   </div>;
 }
 
-function CandidateReview({ state, detection, scope, onSaved, advance, setAdvance, openRecord, focusVersion }: {
+function CandidateReview({ state, detection, scope, onSaved, advance, setAdvance, openRecord, focusVersion, onFocusHandled }: {
   state: CityState; detection: EdgeDetection; scope: PoliceJurisdictionId; onSaved: (review: DetectionReview) => void;
-  advance: boolean; setAdvance: (value: boolean) => void; openRecord: (event: EventRef) => void; focusVersion: number;
+  advance: boolean; setAdvance: (value: boolean) => void; openRecord: (event: EventRef) => void; focusVersion: number; onFocusHandled: () => void;
 }) {
   const previous = latestDetectionReview(state, detection.id);
   const final = Boolean(previous && previous.decision !== 'Needs verification');
@@ -113,7 +113,12 @@ function CandidateReview({ state, detection, scope, onSaved, advance, setAdvance
   const history = Object.values(state.detectionReviews).filter(review => review.detectionId === detection.id);
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  useEffect(() => { if (focusVersion) heading.current?.focus({ preventScroll: true }); }, [focusVersion]);
+  useEffect(() => {
+    if (!focusVersion) return;
+    heading.current?.focus({ preventScroll: true });
+    heading.current?.scrollIntoView({ block: 'start' });
+    onFocusHandled();
+  }, [focusVersion]);
   useEffect(() => {
     if (!playing || frames.length < 2 || busy) return;
     const timer = window.setInterval(() => setFrameId(current => frames[(frames.findIndex(item => item.id === current) + 1) % frames.length].id), intervalSeconds * 1000);
@@ -199,7 +204,6 @@ function CandidateReview({ state, detection, scope, onSaved, advance, setAdvance
         {history.length > 0 && <div className="review-audit"><h3>Decision history</h3>{history.map(review => <article key={review.id}><strong>{review.decision}</strong><span>{formatDemoDate(review.reviewedAt)} · {review.reviewer}</span><p>{review.note}</p><small>{review.frames.length} frame assessments · revision {review.expectedRevision}</small>{review.decision === 'Corrected' && <p>{detectionLabels[detection.category]} / {detection.severity} → {detectionLabels[review.category]} / {review.severity}</p>}</article>)}<p>Feedback retained for offline evaluation. These actions do not retrain a model.</p></div>}
       </aside>
     </div>
-    <a className="review-back-top" href="#root"><ArrowLeft size={14}/> Back to top</a>
   </section>;
 }
 

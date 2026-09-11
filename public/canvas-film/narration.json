@@ -1,0 +1,19 @@
+[
+  {"start":0,"end":4,"speaker":"Representative","phrases":["One city. Thousands of changes.","No shared, real-time picture."]},
+  {"start":4,"end":8,"speaker":"Police","phrases":["Our cameras are fixed. Incidents aren’t.","One goes offline."]},
+  {"start":8,"end":14,"speaker":"Representative","phrases":["Fleet cameras extend observation:","capture, detect, geotag—then send usable information to Drishti."]},
+  {"start":14,"end":18,"speaker":"Police","phrases":["Hit-and-run on Anna Salai.","Which way did that vehicle go?"]},
+  {"start":18,"end":27,"speaker":"Representative","phrases":["AI links possible sightings for police review.","More cameras aren’t enough;","observations must be interpreted and connected."]},
+  {"start":27,"end":31,"speaker":"Municipality","phrases":["By the time complaints arrive,","cracks have become potholes."]},
+  {"start":31,"end":40,"speaker":"Representative","phrases":["Detect, prioritize, assign, repair—then observe again.","AI checks the repair;","an official confirms closure."]},
+  {"start":40,"end":44,"speaker":"Citizen","phrases":["Faded crossings endanger pedestrians—","at Phoenix Mall and outside schools."]},
+  {"start":44,"end":49,"speaker":"Representative","phrases":["Vision assesses road markings;","repairs follow the same verified lifecycle."]},
+  {"start":49,"end":53,"speaker":"Municipality","phrases":["Close one road for metro work;","surrounding roads choke."]},
+  {"start":53,"end":59,"speaker":"Representative","phrases":["Compare historical and current traffic,","simulate diversions, then approve."]},
+  {"start":59,"end":68,"speaker":"Citizen","phrases":["Metro work beside my house may not reach Google Maps immediately.","If the city has already changed,","why shouldn’t the map change with it?"]},
+  {"start":68,"end":73,"speaker":"Representative","phrases":["Government-approved changes update Drishti’s map—","and your journey."]},
+  {"start":73,"end":77,"speaker":"Police","phrases":["We spend less time searching","and more time responding."]},
+  {"start":77,"end":80.5,"speaker":"Municipality","phrases":["We stop waiting for problems","to become complaints."]},
+  {"start":80.5,"end":85,"speaker":"Citizen","phrases":["We see a city that actually reflects","what is happening around us."]},
+  {"start":85,"end":90,"speaker":"Representative","phrases":["That’s the difference between a reactive city","and a proactive one."]}
+]

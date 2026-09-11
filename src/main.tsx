@@ -1,11 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import './styles.css';
-import './styles-municipal.css';
-import './styles-refinement.css';
-import './styles-evidence.css';
-import './styles-landing.css';
-import './styles-police.css';
-
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+// The film itself is a static HTML/Canvas document, not a React route.
+if (/^\/presentation\/?$/.test(window.location.pathname)) {
+	window.location.replace(`/canvas-film/index.html${window.location.search}${window.location.hash}`);
+} else {
+	const Entry = React.lazy(() => import('./OperationalApp'));
+	ReactDOM.createRoot(document.getElementById('root')!).render(
+		<React.StrictMode><React.Suspense fallback={<p role="status">Loading Drishti…</p>}><Entry /></React.Suspense></React.StrictMode>,
+	);
+}
