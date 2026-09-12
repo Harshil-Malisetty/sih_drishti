@@ -1,0 +1,88 @@
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/600.css';
+
+.film-page {
+  --film-paper: #f4f5f0;
+  --film-ink: #283d37;
+  --film-muted: #6c7870;
+  --film-line: #d8ddd3;
+  min-height: 100dvh;
+  background: var(--film-paper);
+  color: var(--film-ink);
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.film-page * { box-sizing: border-box; letter-spacing: 0; }
+.film-masthead { height: 70px; padding: 0 36px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--film-line); }
+.film-brand { color: inherit; display: flex; align-items: center; gap: 16px; text-decoration: none; }
+.film-brand strong { font-size: 18px; font-weight: 800; }
+.film-brand strong span { margin-left: 11px; font-size: 11px; color: var(--film-muted); font-weight: 500; }
+.film-edition { font-family: Georgia, serif; font-style: italic; font-size: 16px; color: var(--film-muted); }
+.film-chapter { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.film-chapter span { margin-left: 7px; color: var(--film-muted); font-weight: 400; }
+.film-player { width: 100%; outline-offset: -3px; }
+.film-picture { position: relative; width: min(100%, calc((100dvh - 214px) * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; overflow: hidden; background: #c7d9c4; }
+.film-picture canvas { display: block; width: 100%; height: 100%; }
+.film-subtitles { position: absolute; bottom: 5%; left: 10%; width: 80%; text-align: center; pointer-events: none; }
+.film-subtitles span { display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 5px 12px; background: #203b33e8; color: #fffbee; font-size: 20px; font-weight: 500; line-height: 1.7; }
+.film-transport { max-width: 1600px; margin: 0 auto; padding: 0 36px; }
+.film-seek { display: block; appearance: none; width: 100%; height: 20px; margin: 0; cursor: pointer; background: transparent; touch-action: pan-y; }
+.film-seek::-webkit-slider-runnable-track { height: 3px; background: linear-gradient(to right, #3f7663 var(--film-progress), #d5ddd1 var(--film-progress)); }
+.film-seek::-moz-range-track { height: 3px; background: #d5ddd1; }
+.film-seek::-moz-range-progress { height: 3px; background: #3f7663; }
+.film-seek::-webkit-slider-thumb { appearance: none; width: 11px; height: 11px; border-radius: 50%; margin-top: -4px; background: #3f7663; }
+.film-seek::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%; background: #3f7663; }
+.film-control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.film-controls { display: flex; align-items: center; gap: 5px; }
+.film-controls button { display: grid; place-items: center; width: 42px; height: 42px; min-height: 42px; border: 0; background: transparent; color: var(--film-ink); cursor: pointer; border-radius: 4px; padding: 0; }
+.film-controls button svg { width: 18px; height: 18px; stroke-width: 1.7; }
+.film-controls button:hover, .film-controls button[aria-pressed='true'] { background: #e1e9dd; }
+.film-controls button.film-play { background: var(--film-ink); color: var(--film-paper); margin-right: 4px; }
+.film-controls button.film-play:hover { background: #406452; }
+.film-controls button:disabled { opacity: .4; cursor: not-allowed; }
+.film-page :focus-visible { outline: 2px solid #ad694f; outline-offset: 3px; }
+.film-time { font-size: 12px; font-variant-numeric: tabular-nums; padding: 0 12px; white-space: nowrap; }
+.film-time span { color: var(--film-muted); margin-left: 4px; }
+.film-controls select { width: 61px; height: 40px; padding: 0 5px; border: 0; background: transparent; color: var(--film-muted); font-size: 12px; cursor: pointer; }
+.film-colophon { max-width: 1600px; min-height: 78px; margin: 0 auto; padding: 16px 36px 20px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.film-colophon > div { display: flex; align-items: baseline; gap: 17px; }
+.film-scene-number { font-size: 10px; color: var(--film-muted); white-space: nowrap; }
+.film-colophon h1 { font-family: Georgia, serif; font-size: 22px; font-weight: 400; line-height: 1.2; margin: 0; }
+.film-production-note { font-size: 11px; line-height: 1.8; text-align: right; color: #64736b; }
+.film-production-note > span { display: block; font-size: 10px; color: var(--film-muted); }
+.film-production-note i { display: inline-block; width: 3px; height: 3px; border-radius: 50%; margin: 0 7px 2px; background: #93a18f; }
+.film-error { padding: 10px 36px; margin: 0; font-size: 12px; color: #a1523d; }
+.film-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.film-player:fullscreen { background: #1d2a24; display: flex; flex-direction: column; align-items: center; justify-content: center; --film-ink: #e6eadc; --film-muted: #adb9a8; --film-paper: #243c30; }
+.film-player:fullscreen .film-picture { width: min(100%, calc((100dvh - 70px) * 16 / 9)); }
+.film-player:fullscreen .film-transport { width: 100%; }
+.film-player:fullscreen .film-controls button:hover, .film-player:fullscreen .film-controls button[aria-pressed='true'] { background: #46604e; }
+@media (max-width: 600px) {
+  .film-masthead { height: 60px; padding: 0 16px; gap: 10px; }
+  .film-edition { display: none; }
+  .film-brand { gap: 8px; }
+  .film-brand strong { font-size: 16px; }
+  .film-brand strong span { margin-left: 8px; font-size: 10px; }
+  .film-chapter { font-size: 10px; }
+  .film-picture { width: 100%; }
+  .film-transport { padding: 0 12px; }
+  .film-control-row { flex-wrap: wrap; gap: 4px; }
+  .film-controls { gap: 0; }
+  .film-time { padding: 0 6px; font-size: 10px; }
+  .film-options { margin-left: auto; }
+  .film-controls button { width: 36px; height: 42px; }
+  .film-controls select { width: 49px; }
+  .film-subtitles { left: 6%; width: 88%; bottom: 4%; }
+  .film-subtitles span { font-size: 12px; padding: 3px 6px; line-height: 1.6; }
+  .film-colophon { padding: 19px 16px; align-items: flex-start; }
+  .film-colophon > div { flex-direction: column; gap: 6px; }
+  .film-colophon h1 { font-size: 20px; }
+  .film-production-note { font-size: 10px; }
+  .film-production-note > span { max-width: 135px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .film-masthead, .film-colophon { display: none; }
+  .film-picture { width: min(100%, calc((100dvh - 66px) * 16 / 9)); }
+}

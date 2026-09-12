@@ -11,6 +11,7 @@ import { cityStore } from './services/city';
 const PolicePages = lazy(() => import('./pages/PolicePages'));
 const MunicipalPages = lazy(() => import('./pages/MunicipalOperations'));
 const CitizenPages = lazy(() => import('./pages/CitizenPages'));
+const SceneOne = lazy(() => import('./film/MotionFilmPlayer'));
 
 type WorkspaceRole = Exclude<Role, 'landing'>;
 type Screen = 'landing' | 'signin' | 'workspace';
@@ -28,6 +29,7 @@ const roleBanners = {
 };
 
 export default function App(){
+ if(typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/film/scene-1')return <AppErrorBoundary><Suspense fallback={<main aria-busy="true" aria-label="Loading scene"/>}><SceneOne/></Suspense></AppErrorBoundary>;
  return <AppErrorBoundary><ActionFeedbackProvider><Suspense fallback={<main aria-busy="true"><LoadingState/></main>}><AppScreens/></Suspense></ActionFeedbackProvider></AppErrorBoundary>;
 }
 
