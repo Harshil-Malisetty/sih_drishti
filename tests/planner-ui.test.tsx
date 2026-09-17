@@ -35,10 +35,21 @@ describe('corridor planner presentation', () => {
     }
     expect(plannerRoadSegments).toEqual(before);
     const source = readFileSync(new URL('../src/components/PlannerMap.tsx', import.meta.url), 'utf8');
-    expect(source).not.toMatch(/L\.(polyline|polygon)|innerHTML/);
-    expect(source).toContain('zoomAnimation: false');
-    expect(source).toContain("element.setAttribute('aria-pressed'");
-    expect(source).toContain('observer.disconnect()');
+    const shared = readFileSync(new URL('../src/components/MapLibreMap.tsx', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/leaflet|useMapLines|innerHTML/);
+    expect(source).toContain('useCityMap(host,');
+    expect(source).toContain('scrollWheelZoom: false');
+    expect(source).toContain('export type PlannerCamera = CityMapCamera');
+    expect(source).toContain('onViewChange: onCameraChange');
+    expect(source).toContain('fitMapPoints(handle,');
+    expect(source).toContain('panPointInside(handle, plannerLocation(active.road))');
+    expect(source).toContain("useMapMarkers(handle, 'planner-locations'");
+    expect(source).toContain('selected, onSelect, disabled');
+    expect(source).toContain("String(number).padStart(2, '0')");
+    expect(source).toContain('<CityMapStatus loading={loading} error={error}/>');
+    expect(shared).toContain("element.setAttribute('aria-pressed'");
+    expect(shared).toContain('duration: 0');
+    expect(shared).toContain('observer?.disconnect()');
   });
 
   it('describes result pins as locations rather than an actual closure geometry', () => {

@@ -19,6 +19,10 @@ import type { FleetObservation, Status, WatchlistMatch } from '../types';
 import type { CityIncident } from '../types/city';
 import { EvidenceCredit, EvidenceImage, EvidenceScene } from '../components/EvidenceMedia';
 import { EventThumbnail, eventPhaseLabel, type EventCategory } from '../components/EventThumbnail';
+import { OperationalHeatControls, useHeatDisplay } from '../components/OperationalHeatControls';
+import { FleetReplayControls } from '../components/FleetReplayControls';
+import { defaultHeatFilters, selectHeatSignals } from '../domain/mapSignals';
+import { useBusPlayback } from '../services/useBusPlayback';
 
 type WorkflowView={kind:'incident';id:string}|{kind:'evidence';id:string}|{kind:'assignment';id:string}|{kind:'match';id:string}|{kind:'map';id:string}|{kind:'traffic';id:string};
 type Assignment=ReturnType<typeof usePoliceData>['assignments'][string];
@@ -32,7 +36,16 @@ const matchCard=(match:WatchlistMatch)=>({...match,timestamp:formatDemoDate(demo
 function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)=>void;selected:string;onSelect:(id:string)=>void;cameras:Partial<Record<PoliceMapRecord['group'],PoliceMapCamera>>}){
  const {state,buses,incidents,watchlist}=usePoliceData();
  const {jurisdiction,areaName,jurisdictionId}=usePoliceJurisdiction();
+ const [heatHistory,setHeatHistory]=useState(false);
+ const [heatFitRequest,setHeatFitRequest]=useState(0);
+ const [fleetFocusRequest,setFleetFocusRequest]=useState(0);
+ const [replayEnabled,setReplayEnabled]=useState(true);
+ const [replaySpeed,setReplaySpeed]=useState(4);
+ const playback=useBusPlayback(buses,replaySpeed);
+ const heatPoints=useMemo(()=>selectHeatSignals(state,'police',{...defaultHeatFilters,history:heatHistory},jurisdictionId),[state,heatHistory,jurisdictionId]);
+ const heatDisplay=useHeatDisplay(heatPoints);
  const [filter,setFilter]=useState<PoliceMapRecord['group']>(()=>incidents.some(item=>item.id===selected)?'Incidents':watchlist.some(item=>item.id===selected||item.observations?.some(observation=>observation.id===selected))?'Watchlist':'Fleet');
+ useEffect(()=>{playback.setVisible(replayEnabled&&filter==='Fleet')},[replayEnabled,filter,playback.setVisible]);
  const records=useMemo<PoliceMapRecord[]>(()=>{
   const fleet=buses.filter(bus=>bus.status==='Sensing').map(bus=>{
    const location=state.roadSegments[bus.roadSegmentId]?.name||'Location unavailable';
@@ -48,22 +61,30 @@ function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)
   return [...fleet,...events,...matches];
  },[state,buses,incidents,watchlist]);
  const visible=records.filter(item=>item.group===filter);
+ const displayed:PoliceGeoMarker[]=visible.map(item=>{
+  const position=replayEnabled&&item.type==='bus'?playback.positions.find(bus=>bus.id===item.id):undefined;
+  return position?.playback?{...item,latitude:position.latitude,longitude:position.longitude,heading:position.heading,label:`${item.label} · Demo route playback`}:item;
+ });
  const selectedObservation=filter==='Watchlist'?watchlist.filter(item=>item.status!=='Dismissed').flatMap(item=>(item.observations||[]).map(observation=>({observation,parent:item}))).find(item=>item.observation.id===selected):undefined;
  const active=visible.find(item=>item.id===(selectedObservation?.parent.id||selected));
  const trail=active?.type==='watchlist'?watchlist.find(item=>item.id===active.id)?.observations?.map(item=>({id:item.id,latitude:item.latitude,longitude:item.longitude,label:`${item.busId} · ${formatDemoDate(demoDate(item.timestamp))}`})):[];
  const actionRecordId=selectedObservation?.parent.id||active?.id;
  const changeFilter=(value:string)=>{const next=value as PoliceMapRecord['group'];setFilter(next);onSelect(records.find(item=>item.group===next)?.id||'')};
  const initialView=cameras[filter]||(jurisdiction?{center:[...jurisdiction.center] as [number,number],zoom:jurisdiction.zoom}:undefined);
- return <div className="map-page police-real-map">
+ return <div className="operational-map-shell">
+  <OperationalHeatControls role="police" display={heatDisplay} points={heatPoints} history={heatHistory} setHistory={setHeatHistory} onFit={()=>setHeatFitRequest(value=>value+1)}/>
+  {filter==='Fleet'&&<FleetReplayControls playback={playback} enabled={replayEnabled} setEnabled={setReplayEnabled} speed={replaySpeed} setSpeed={setReplaySpeed} onLocate={id=>{onSelect(id);setFleetFocusRequest(value=>value+1)}}/>}
+  <div className="map-page police-real-map">
   <div className="police-map-heading"><div><span>AREA OPERATIONS</span><h1>{areaName}</h1></div><span role="status">{visible.length} {filter.toLowerCase()} {visible.length===1?'record':'records'}</span></div>
   <div className="map-filter police-filters"><FilterBar items={['Fleet','Incidents','Watchlist']} active={filter} onChange={changeFilter}/></div>
-  <PoliceMapView key={`${jurisdictionId}-${filter}`} initialView={initialView} onViewChange={camera=>{cameras[filter]=camera}} markers={visible} selected={selected} onSelect={onSelect} onTrailSelect={onSelect} trail={trail}/>
+  {filter==='Fleet'&&<label className="operational-fleet-picker">Bus<select aria-label="Select fleet vehicle" value={active?.id||''} onChange={event=>onSelect(event.target.value)}><option value="" disabled>Select vehicle</option>{visible.map(bus=><option key={bus.id} value={bus.id}>{bus.label}</option>)}</select></label>}
+  <PoliceMapView key={jurisdictionId} viewKey={filter} initialView={initialView} onViewChange={camera=>{cameras[filter]=camera}} markers={displayed} selected={selected} onSelect={onSelect} onTrailSelect={onSelect} trail={trail} heatPoints={heatDisplay.points} heatOpacity={heatDisplay.visible?heatDisplay.opacity:0} heatFitRequest={heatFitRequest} fleetFocusRequest={fleetFocusRequest}/>
   {!visible.length&&<div className="police-map-empty"><PoliceEmptyState title={`No ${filter.toLowerCase()} records here`} text="There are no current records in this map layer."/></div>}
   {active?.type==='watchlist'&&jurisdiction&&<p className="police-map-history">Latest sighting is in this area. The trail includes earlier sightings outside it.</p>}
   {active&&<BottomSheet eyebrow={selectedObservation?'MOVEMENT TRAIL OBSERVATION':active.eyebrow} title={selectedObservation?selectedObservation.observation.id:active.title} action={active.type==='incident'?'View Incident':active.type==='watchlist'?'Open Record':undefined} onAction={active.type!=='bus'&&actionRecordId?()=>open(actionRecordId):undefined}>
    {selectedObservation?<PoliceObservationDetails matchId={selectedObservation.parent.id} observation={selectedObservation.observation}/>:<PoliceMapDetails record={active}/>}
   </BottomSheet>}
- </div>;
+ </div></div>;
 }
 
 function PoliceObservationDetails({matchId,observation}:{matchId:string;observation:FleetObservation}){

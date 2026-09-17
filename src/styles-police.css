@@ -22,6 +22,11 @@
 .police .sensor-strip span { color:#486a57;font-size:12px;line-height:1.5; }
 .police .section-head { margin:25px 0 12px; }
 .police .section-head h2 { font-size:16px;letter-spacing:-.02em; }
+/* Timeline typography only: each existing size increases by 1.5px. */
+.police .operational-flow .section-head h2 { font-size:17.5px; }
+.police .operational-timeline strong,.police .operational-timeline p small { font-size:12.5px; }
+.police .operational-timeline span,.police .operational-timeline i { font-size:9.5px; }
+.police .operational-timeline > div:not(:last-child)::after { font-size:13.5px; }
 .police :is(.event-card,.watch-card,.traffic-control-link) { border:1px solid var(--line);border-radius:13px;padding:14px;box-shadow:0 3px 10px #19382704; }
 .police :is(.event-card,.watch-card,.traffic-control-link):hover { border-color:#94b7a3;background:#fbfdfb; }
 .police .event-card .event-main > strong,.police .watch-card strong { font-size:14px;line-height:1.5; }
@@ -49,7 +54,7 @@
 .police .police-workflow :is(.primary,.secondary) { border-radius:9px;min-height:46px; }
 .police .assignment-form label { font-size:12px; }
 .police .assignment-form select { min-height:46px;border-radius:8px; }
-.police-history-note { padding:12px 15px;border-left:3px solid #b4904b;background:#faf4e8;border-radius:0 8px 8px 0;color:#715625;font-size:12px;line-height:1.6; }
+.police-history-note { padding:12px 15px;border-left:3px solid #b4904b;background:#faf4e8;border-radius:8px;color:#715625;font-size:12px;line-height:1.6; }
 .police main { min-height:calc(100dvh - 206px); }
 .police .police-real-map { height:calc(100dvh - 206px - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:430px; }
 .police .police-workflow > .police-real-map { height:calc(100dvh - 128px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }

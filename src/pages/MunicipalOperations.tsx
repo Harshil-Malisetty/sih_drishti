@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { OperationalHeatControls, useHeatDisplay } from '../components/OperationalHeatControls';
+import { defaultHeatFilters, selectHeatSignals } from '../domain/mapSignals';
 import {
   ArrowRight,
   BusFront,
@@ -536,7 +538,12 @@ function MunicipalMap({
   onViewChange: (camera: MunicipalMapCamera) => void;
   open: (x: RoadDefect) => void;
 }) {
-  const { defects } = useCityData();
+  const { defects, state } = useCityData();
+  const [heatHistory, setHeatHistory] = useState(false);
+  const [heatRepeats, setHeatRepeats] = useState(false);
+  const [heatFitRequest, setHeatFitRequest] = useState(0);
+  const heatPoints = useMemo(() => selectHeatSignals(state, 'municipal', { ...defaultHeatFilters, history: heatHistory, metric: heatRepeats ? 'observations' : 'cases' }), [state, heatHistory, heatRepeats]);
+  const heatDisplay = useHeatDisplay(heatPoints);
   const visible = defects.filter((x) => inMunicipalLayer(x, filter));
   const item = visible.find((x) => x.id === selected);
   const markers: MunicipalGeoMarker[] = visible.map((x) => ({
@@ -559,7 +566,7 @@ function MunicipalMap({
     if (first) onSelect(first.id);
   };
   return (
-    <div className="map-page municipal-map-page">
+    <div className="operational-map-shell"><OperationalHeatControls role="municipal" display={heatDisplay} points={heatPoints} history={heatHistory} setHistory={setHeatHistory} repeats={heatRepeats} setRepeats={setHeatRepeats} onFit={() => setHeatFitRequest(value => value + 1)}/><div className="map-page municipal-map-page">
       <div className="map-filter">
         <FilterBar
           items={municipalLayers}
@@ -568,6 +575,9 @@ function MunicipalMap({
         />
       </div>
       <MunicipalMapView
+        heatPoints={heatDisplay.points}
+        heatOpacity={heatDisplay.visible ? heatDisplay.opacity : 0}
+        heatFitRequest={heatFitRequest}
         markers={markers}
         selected={selected}
         initialView={view}
@@ -592,7 +602,7 @@ function MunicipalMap({
           </button>
         </section>
       )}
-    </div>
+    </div></div>
   );
 }
 

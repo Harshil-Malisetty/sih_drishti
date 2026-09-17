@@ -1,9 +1,12 @@
 /* Last shared layer: keep role palettes and workflow-specific surfaces intact. */
 :root { --focus-ring: #246f9a; }
 :root { --page-pad: 16px; }
+/* Soft defaults; component-specific pills and circular controls keep their radii. */
+:where(.app-shell,.product-dialog,.logout-dialog) button { border-radius:8px; }
 .segmented { height:auto;min-height:46px; }
 .segmented button { min-height:44px; }
-.surface,.operation-panel,.project-approval { border-radius:6px;box-shadow:none; }
+.surface,.operation-panel,.project-approval { border-radius:12px;box-shadow:none; }
+.logout-dialog,.gis-map-warning,.trail-summary,.privacy-note,.match-removed { border-radius:12px; }
 .operation-panel p,.operation-panel dd { overflow-wrap:anywhere; }
 .operation-panel > p { font-size:13px;line-height:1.55; }
 .chart-data { font-size:12px;line-height:1.5;margin-top:10px; }

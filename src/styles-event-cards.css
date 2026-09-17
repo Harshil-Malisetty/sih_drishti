@@ -27,6 +27,10 @@
 .event-thumbnail[data-category="person"] > img.event-thumbnail-photo { object-fit: contain; }
 .event-card.event-card, .watch-card.watch-card { align-items: start; padding: 14px; gap: 12px; border-radius: 10px; }
 .event-card .event-main > span, .event-card .event-main > small { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.event-card .event-main > .event-meta { display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px; }
+.event-card .event-meta-item { display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%; }
+.event-card .event-meta-item > svg { flex:none; }
+.event-card .event-meta-item > span { min-width:0; }
 .event-card .card-top { flex-wrap: wrap; gap: 4px 8px; }
 .watch-card.watch-card > .event-copy { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .traffic-control-link.event-scene-row { border-radius: 10px; align-items: start; }
