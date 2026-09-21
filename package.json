@@ -21,6 +21,7 @@
     "@motion-canvas/2d": "^3.17.2",
     "@motion-canvas/core": "^3.17.2",
     "@number-flow/react": "^0.6.2",
+    "@vercel/analytics": "^2.0.1",
     "@visx/curve": "^4.0.1-alpha.0",
     "@visx/event": "^4.0.1-alpha.0",
     "@visx/gradient": "^4.0.1-alpha.0",
