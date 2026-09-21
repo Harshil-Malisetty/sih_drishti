@@ -12,7 +12,7 @@ const PolicePages = lazy(() => import('./pages/PolicePages'));
 const MunicipalPages = lazy(() => import('./pages/MunicipalOperations'));
 const CitizenPages = lazy(() => import('./pages/CitizenPages'));
 const SceneOne = lazy(() => import('./film/MotionFilmPlayer'));
-
+import { Analytics } from "@vercel/analytics/next"
 type WorkspaceRole = Exclude<Role, 'landing'>;
 type Screen = 'landing' | 'signin' | 'workspace';
 
