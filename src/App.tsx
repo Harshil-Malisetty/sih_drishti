@@ -30,9 +30,40 @@ const roleBanners = {
  citizen: { category: 'Everyday journeys', description: 'Know your city. Move with confidence.', photo: '/landing/citizen.webp', location: 'Chennai Metro, Koyambedu' }
 };
 
-export default function App(){
- if(typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/film/scene-1')return <AppErrorBoundary><Suspense fallback={<main aria-busy="true" aria-label="Loading scene"/>}><SceneOne/></Suspense></AppErrorBoundary>;
- return <AppErrorBoundary><ActionFeedbackProvider><Suspense fallback={<main aria-busy="true"><LoadingState/></main>}><AppScreens/></Suspense></ActionFeedbackProvider></AppErrorBoundary>;
+export default function App() {
+  const isFilmScene =
+    typeof window !== 'undefined' &&
+    window.location.pathname.replace(/\/$/, '') === '/film/scene-1';
+
+  return (
+    <>
+      {isFilmScene ? (
+        <AppErrorBoundary>
+          <Suspense
+            fallback={<main aria-busy="true" aria-label="Loading scene" />}
+          >
+            <SceneOne />
+          </Suspense>
+        </AppErrorBoundary>
+      ) : (
+        <AppErrorBoundary>
+          <ActionFeedbackProvider>
+            <Suspense
+              fallback={
+                <main aria-busy="true">
+                  <LoadingState />
+                </main>
+              }
+            >
+              <AppScreens />
+            </Suspense>
+          </ActionFeedbackProvider>
+        </AppErrorBoundary>
+      )}
+
+      <Analytics />
+    </>
+  );
 }
 
 function AppScreens(){
