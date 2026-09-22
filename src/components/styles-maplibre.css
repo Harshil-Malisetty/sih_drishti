@@ -10,9 +10,16 @@
 .maplibregl-ctrl-top-right { top:12px; right:4px; }
 .police-real-map .maplibregl-ctrl-top-right { top:70px; }
 .municipal-map-page .maplibregl-ctrl-top-right { top:66px; }
-.city-map-point { display:grid; place-items:center; width:21px; height:21px; padding:0; border:3px solid #fff; border-radius:50%; background:var(--point-color,#315c51); color:white; box-shadow:0 2px 8px #173b3638; cursor:pointer; }
+.city-map-point { position:relative; display:grid; place-items:center; width:21px; height:21px; padding:0; border:3px solid #fff; border-radius:50%; background:var(--point-color,#315c51); color:white; box-shadow:0 2px 8px #173b3638; cursor:pointer; }
 .city-map-point.is-selected { width:27px; height:27px; outline:2px solid var(--point-color,#315c51); outline-offset:2px; }
 .city-map-point.is-numbered { width:30px; height:30px; font-size:11px; font-weight:700; }
+.city-map-point-text { display:grid; place-items:center; line-height:1; }
+/* Collapsed neighbours. The count keeps every record reachable without stacking pins. */
+.city-map-point.is-cluster { width:32px; height:32px; font:750 12px Inter,'Segoe UI',sans-serif; box-shadow:0 2px 10px #173b3644,0 0 0 6px #315c5126; }
+.city-map-point.is-cluster:hover { background:#3d6f62; }
+/* Labels stay out of the way until a marker is selected or the view is close enough. */
+.city-map-tag { position:absolute; top:calc(100% + 5px); left:50%; transform:translateX(-50%); display:none; max-width:168px; padding:3px 7px; border-radius:5px; background:#ffffffee; border:1px solid #d7e3dc; color:#2c4a3e; font:600 10px Inter,'Segoe UI',sans-serif; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; box-shadow:0 2px 8px #1d3a2f1a; }
+.city-map-point.is-labelled .city-map-tag { display:block; }
 .city-map-point.planner-pin { width:40px; height:40px; border-radius:10px; font-size:12px; }
 .city-map-point:focus-visible { outline:3px solid #276444; outline-offset:4px; }
 .city-map-point[aria-disabled=true] { cursor:default; }
@@ -28,4 +35,15 @@
 .scenario-map .city-map-point.planner-pin { width:32px;height:32px;border:1px solid #6b7f76;border-radius:50%;background:var(--point-color);color:#334b40;font-weight:700; }
 .scenario-map .city-map-point.planner-pin.is-selected { border:2px solid white;color:#fff; }
 .scenario-map .city-map-point.planner-pin.is-affected { color:#865914;border-color:#ad762c; }
-@media(max-width:799px) { .maplibregl-map .maplibregl-ctrl-group button { width:36px; height:36px; } }
+@media(max-width:799px),(max-height:560px) {
+ .maplibregl-map .maplibregl-ctrl-group button { width:36px; height:36px; }
+ /* One-handed map: keep the zoom/compass stack clear of the thumb and the sheet. */
+ .maplibregl-ctrl-top-right { top:8px; right:6px; }
+ .police-real-map .maplibregl-ctrl-top-right,.municipal-map-page .maplibregl-ctrl-top-right { top:8px; }
+ .maplibregl-map .maplibregl-ctrl-top-right .maplibregl-ctrl-group { margin:0 0 8px; }
+ /* Stack zoom and compass vertically so the top overlay row keeps its width. */
+ .maplibregl-map .maplibregl-ctrl-top-right > .maplibregl-ctrl-group:first-child { flex-direction:column; }
+ .maplibregl-map .maplibregl-ctrl-group button + button { border-top:1px solid #dce5de; border-left:0; }
+ .city-map-tag { font-size:9px; max-width:132px; }
+ .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib { margin-bottom:0; }
+}

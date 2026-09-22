@@ -8,6 +8,11 @@ import './styles-maplibre.css';
 export const CITY_MAP_STYLE = 'https://tiles.openfreemap.org/styles/bright';
 // Preserve the application's latitude-first contracts and previous 256px zoom scale.
 export type CityMapCamera = { center: RoadCoordinate; zoom: number; pitch?: number; bearing?: number };
+/** Geographic rendering mode. It owns pitch and building extrusion only: never data layers, selection or camera position. */
+export type CityMapMode = '2d' | '3d';
+export const MAP_MODE_PITCH = 55, MAP_MODE_BEARING = -18;
+export const cameraForMode = (camera: CityMapCamera, mode: CityMapMode): CityMapCamera =>
+  ({ ...camera, pitch: mode === '3d' ? MAP_MODE_PITCH : 0, bearing: mode === '3d' ? MAP_MODE_BEARING : 0 });
 export const toMapPosition = ([latitude, longitude]: RoadCoordinate): [number, number] => [longitude, latitude];
 export const toMapZoom = (zoom: number) => zoom - 1;
 export type CityMapHandle = { map: GLMap; runtime: typeof import('./maplibreRuntime') };
@@ -39,8 +44,9 @@ export function panPointInside(handle: CityMapHandle | null, point: RoadCoordina
   if (xy.x < padding || xy.y < padding || xy.x > host.clientWidth - padding || xy.y > host.clientHeight - padding) handle.map.jumpTo({ center: toMapPosition(point) });
 }
 
-export function useCityMap(host: RefObject<HTMLDivElement | null>, options: { initialView: CityMapCamera; onViewChange?: (camera: CityMapCamera) => void; scrollWheelZoom?: boolean; focus?: RoadCoordinate }) {
+export function useCityMap(host: RefObject<HTMLDivElement | null>, options: { initialView: CityMapCamera; onViewChange?: (camera: CityMapCamera) => void; scrollWheelZoom?: boolean; mode?: CityMapMode; onModeChange?: (mode: CityMapMode) => void }) {
   const latest = useRef(options); latest.current = options;
+  const mode = options.mode;
   const [handle, setHandle] = useState<CityMapHandle | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
   useEffect(() => {
     const element = host.current; if (!element) return;
@@ -55,17 +61,18 @@ export function useCityMap(host: RefObject<HTMLDivElement | null>, options: { in
       const map = instance, next = { map, runtime }; handles.set(element, next); setHandle(next);
       map.addControl(new runtime.NavigationControl({ visualizePitch: true }), 'top-right');
       map.addControl(new runtime.AttributionControl({ compact: true }), 'bottom-right');
-      const mode = document.createElement('button'); mode.type = 'button'; mode.textContent = '3D'; mode.title = 'Tilt map and show 3D buildings'; mode.setAttribute('aria-label', 'Toggle 3D map'); mode.setAttribute('aria-pressed', String(map.getPitch() > 5));
-      const group = document.createElement('div'); group.className = 'maplibregl-ctrl maplibregl-ctrl-group city-map-mode'; group.append(mode);
-      mode.onclick = () => {
-        const threeD = map.getPitch() < 5;
-        map.easeTo({ pitch: threeD ? 55 : 0, bearing: threeD ? -18 : 0, zoom: threeD ? Math.max(map.getZoom(), 16) : map.getZoom(),
-          ...(threeD && latest.current.focus ? { center: toMapPosition(latest.current.focus) } : {}), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 550 });
+      const modeButton = document.createElement('button'); modeButton.type = 'button'; modeButton.textContent = '3D'; modeButton.title = 'Tilt map and show 3D buildings'; modeButton.setAttribute('aria-label', 'Toggle 3D map'); modeButton.setAttribute('aria-pressed', String(map.getPitch() > 5));
+      const group = document.createElement('div'); group.className = 'maplibregl-ctrl maplibregl-ctrl-group city-map-mode'; group.append(modeButton);
+      // Switching the base rendering must never move, refit or reload the map: the
+      // camera position, every data layer and the whole selection survive untouched.
+      modeButton.onclick = () => {
+        const next: CityMapMode = map.getPitch() < 5 ? '3d' : '2d';
+        if (latest.current.onModeChange) latest.current.onModeChange(next); else applyMapMode(map, next);
       };
-      map.addControl({ onAdd: () => group, onRemove: () => { mode.onclick = null; group.remove(); } }, 'top-right');
+      map.addControl({ onAdd: () => group, onRemove: () => { modeButton.onclick = null; group.remove(); } }, 'top-right');
       const save = () => {
         const center = map.getCenter(), camera: CityMapCamera = { center: [center.lat, center.lng], zoom: map.getZoom() + 1, pitch: map.getPitch(), bearing: map.getBearing() };
-        element.dataset.mapCamera = JSON.stringify(camera); mode.textContent = camera.pitch! > 5 ? '2D' : '3D'; mode.setAttribute('aria-pressed', String(camera.pitch! > 5)); latest.current.onViewChange?.(camera);
+        element.dataset.mapCamera = JSON.stringify(camera); modeButton.textContent = camera.pitch! > 5 ? '2D' : '3D'; modeButton.setAttribute('aria-pressed', String(camera.pitch! > 5)); latest.current.onViewChange?.(camera);
       };
       map.on('moveend', save); map.on('movestart', () => { element.dataset.mapIdle = 'false'; }); map.on('dataloading', () => { element.dataset.mapIdle = 'false'; });
       map.on('load', () => {
@@ -75,6 +82,7 @@ export function useCityMap(host: RefObject<HTMLDivElement | null>, options: { in
         map.addLayer({ id: 'city-buildings-3d', type: 'fill-extrusion', source: 'openmaptiles', 'source-layer': 'building', minzoom: 14,
           filter: ['!=', ['get', 'hide_3d'], true], paint: { 'fill-extrusion-color': '#d8d3c7', 'fill-extrusion-opacity': .9,
             'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 0], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0] } }, label);
+        if (latest.current.mode) applyMapMode(map, latest.current.mode);
         save();
       });
       map.on('error', () => { if (!disposed) setError('Some map resources are unavailable. Record details remain available.'); });
@@ -83,7 +91,17 @@ export function useCityMap(host: RefObject<HTMLDivElement | null>, options: { in
     }).catch(() => { if (!disposed) { window.clearTimeout(slow); setLoading(false); setError('The 3D map could not start. Enable WebGL/hardware acceleration. Record details remain available.'); } });
     return () => { disposed = true; window.clearTimeout(slow); observer?.disconnect(); handles.delete(element); instance?.remove(); };
   }, [host]);
+  useEffect(() => { if (handle && mode) applyMapMode(handle.map, mode); }, [handle, mode]);
   return { handle, loading, error };
+}
+
+/** Replaces only the MAP BASE rendering. Sources, markers and overlays are left alone. */
+export function applyMapMode(map: GLMap, mode: CityMapMode) {
+  const threeD = mode === '3d';
+  if (map.getLayer('city-buildings-3d')) map.setLayoutProperty('city-buildings-3d', 'visibility', threeD ? 'visible' : 'none');
+  if ((map.getPitch() > 5) === threeD) return;
+  map.easeTo({ pitch: threeD ? MAP_MODE_PITCH : 0, bearing: threeD ? MAP_MODE_BEARING : 0,
+    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 550 });
 }
 
 export function useGeoJSON(handle: CityMapHandle | null, id: string, data: FeatureCollection<Geometry>, layers: LayerSpecification[], before?: string) {
@@ -102,30 +120,86 @@ export function useGeoJSON(handle: CityMapHandle | null, id: string, data: Featu
   }, [handle, id, data, layers, before]);
 }
 export type CityMapPoint = { id: string; latitude: number; longitude: number; label: string; color?: string; text?: string; className?: string; interactive?: boolean };
-export function useMapMarkers(handle: CityMapHandle | null, id: string, points: CityMapPoint[], selected?: string, onSelect?: (id: string) => void, disabled = false) {
+/** Presentation only: how crowded markers collapse and when their labels are readable. */
+export type CityMapMarkerOptions = { cluster?: boolean; labels?: boolean; labelZoom?: number };
+export type MarkerGroup = { key: string; latitude: number; longitude: number; members: CityMapPoint[] };
+
+/** Screen-independent grid buckets. One cell is roughly 40 device pixels at the live zoom. */
+export function groupMarkers(points: CityMapPoint[], zoom: number, keep?: string): MarkerGroup[] {
+  const cell = 360 / (2 ** (zoom + 1) * 256 / 40);
+  const cells = new Map<string, MarkerGroup>();
+  const groups: MarkerGroup[] = [];
+  for (const point of points) {
+    if (point.id === keep) { groups.push({ key: point.id, latitude: point.latitude, longitude: point.longitude, members: [point] }); continue; }
+    const key = `${Math.floor(point.latitude / cell)}:${Math.floor(point.longitude / cell)}`;
+    const cluster = cells.get(key);
+    if (cluster) { cluster.members.push(point); continue; }
+    const created: MarkerGroup = { key, latitude: point.latitude, longitude: point.longitude, members: [point] };
+    cells.set(key, created); groups.push(created);
+  }
+  for (const group of groups) if (group.members.length > 1) {
+    group.latitude = group.members.reduce((sum, point) => sum + point.latitude, 0) / group.members.length;
+    group.longitude = group.members.reduce((sum, point) => sum + point.longitude, 0) / group.members.length;
+    group.key = `cluster:${group.members.map(point => point.id).sort().join(',')}`;
+  }
+  return groups;
+}
+
+/** Live map zoom, so presentation can respond to it without re-creating the map. */
+function useMapZoom(handle: CityMapHandle | null) {
+  const [zoom, setZoom] = useState(12);
+  useEffect(() => {
+    if (!handle) return;
+    const { map } = handle, read = () => setZoom(Math.round(map.getZoom() * 2) / 2);
+    read(); map.on('zoomend', read); map.on('zoom', read);
+    return () => { map.off('zoomend', read); map.off('zoom', read); };
+  }, [handle]);
+  return zoom;
+}
+
+export function useMapMarkers(handle: CityMapHandle | null, id: string, points: CityMapPoint[], selected?: string, onSelect?: (id: string) => void, disabled = false, options: CityMapMarkerOptions = {}) {
   const latest = useRef({ points, selected, onSelect, disabled }); latest.current = { points, selected, onSelect, disabled };
   const nodes = useRef(new Map<string, import('maplibre-gl').Marker>());
+  const zoom = useMapZoom(handle);
+  const { cluster = false, labels = false, labelZoom = 15 } = options;
   const data: FeatureCollection = { type: 'FeatureCollection', features: points.filter(validFix).map(point => ({ type: 'Feature', id: point.id,
     geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] }, properties: { id: point.id, color: point.color || '#315c51', selected: point.id === selected, native: points.length > 80 } })) };
   useGeoJSON(handle, id, data, [{ id: `${id}-points`, type: 'circle', source: id, filter: ['==', ['get', 'native'], true], paint: {
     'circle-color': ['get', 'color'], 'circle-radius': ['case', ['get', 'selected'], 11, 8], 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } }]);
   useEffect(() => {
     if (!handle) return;
-    const visible = points.length <= 80 ? points.filter(validFix) : [], ids = new Set(visible.map(point => point.id));
-    nodes.current.forEach((node, key) => { if (!ids.has(key)) { node.remove(); nodes.current.delete(key); } });
-    for (const point of visible) {
-      let marker = nodes.current.get(point.id);
+    const valid = points.length <= 80 ? points.filter(validFix) : [];
+    const groups = cluster ? groupMarkers(valid, zoom, selected) : valid.map(point => ({ key: point.id, latitude: point.latitude, longitude: point.longitude, members: [point] }));
+    const keys = new Set(groups.map(group => group.key));
+    nodes.current.forEach((node, key) => { if (!keys.has(key)) { node.remove(); nodes.current.delete(key); } });
+    for (const group of groups) {
+      const collapsed = group.members.length > 1, point = group.members[0];
+      let marker = nodes.current.get(group.key);
       if (!marker) {
-        const element = document.createElement('button'); element.type = 'button'; element.onclick = event => { event.stopPropagation(); if (!latest.current.disabled && latest.current.points.find(item => item.id === point.id)?.interactive !== false) latest.current.onSelect?.(point.id); };
-        marker = new handle.runtime.Marker({ element, anchor: 'center' }).setLngLat([point.longitude, point.latitude]).addTo(handle.map); nodes.current.set(point.id, marker);
+        const element = document.createElement('button'); element.type = 'button';
+        element.append(Object.assign(document.createElement('span'), { className: 'city-map-point-text' }), Object.assign(document.createElement('span'), { className: 'city-map-tag' }));
+        element.onclick = event => {
+          event.stopPropagation();
+          if (latest.current.disabled) return;
+          const members = group.members.filter(item => latest.current.points.some(known => known.id === item.id));
+          if (members.length > 1) { handle.map.easeTo({ center: [group.longitude, group.latitude], zoom: Math.min(handle.map.getZoom() + 2.5, 17) }); return; }
+          if (latest.current.points.find(item => item.id === point.id)?.interactive !== false) latest.current.onSelect?.(point.id);
+        };
+        marker = new handle.runtime.Marker({ element, anchor: 'center' }).setLngLat([group.longitude, group.latitude]).addTo(handle.map); nodes.current.set(group.key, marker);
       }
-      marker.setLngLat([point.longitude, point.latitude]); const element = marker.getElement(), interactive = Boolean(onSelect) && point.interactive !== false;
-      element.className = `city-map-point ${point.text ? 'is-numbered' : ''} ${point.className || ''}${selected === point.id ? ' is-selected selected' : ''}`;
-      element.textContent = point.text || ''; element.title = point.label; element.style.setProperty('--point-color', point.color || '#315c51'); element.setAttribute('aria-label', point.label); element.setAttribute('role', interactive ? 'button' : 'img');
-      if (interactive) element.setAttribute('aria-pressed', String(selected === point.id)); else element.removeAttribute('aria-pressed');
-      element.setAttribute('aria-disabled', String(disabled)); element.tabIndex = !disabled && interactive ? 0 : -1; element.style.zIndex = selected === point.id ? '3' : '1';
+      marker.setLngLat([group.longitude, group.latitude]);
+      const element = marker.getElement(), interactive = Boolean(onSelect) && (collapsed || point.interactive !== false);
+      const label = collapsed ? `${group.members.length} records here. Opens a closer view.` : point.label;
+      const showLabel = labels && !collapsed && (selected === point.id || zoom >= labelZoom);
+      element.className = `city-map-point ${collapsed ? 'is-cluster' : point.text ? 'is-numbered' : ''} ${collapsed ? '' : point.className || ''}${!collapsed && selected === point.id ? ' is-selected selected' : ''}${showLabel ? ' is-labelled' : ''}`;
+      element.firstElementChild!.textContent = collapsed ? String(group.members.length) : point.text || '';
+      element.lastElementChild!.textContent = showLabel ? point.label : '';
+      element.title = label; element.style.setProperty('--point-color', collapsed ? '#315c51' : point.color || '#315c51');
+      element.setAttribute('aria-label', label); element.setAttribute('role', interactive ? 'button' : 'img');
+      if (interactive && !collapsed) element.setAttribute('aria-pressed', String(selected === point.id)); else element.removeAttribute('aria-pressed');
+      element.setAttribute('aria-disabled', String(disabled)); element.tabIndex = !disabled && interactive ? 0 : -1; element.style.zIndex = selected === point.id ? '3' : collapsed ? '2' : '1';
     }
-  }, [handle, points, selected, onSelect, disabled]);
+  }, [handle, points, selected, onSelect, disabled, cluster, labels, labelZoom, zoom]);
   useEffect(() => {
     if (!handle) return;
     const { map } = handle;

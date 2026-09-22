@@ -14,8 +14,10 @@ export function useGLHeat(handle: CityMapHandle | null, points: HeatPoint[], opa
   }, [points]);
   const layers: LayerSpecification[] = useMemo(() => [{ id: 'city-heat-density', type: 'heatmap', source: 'city-heat', paint: {
     // Relative display intensity, NOT severity. Overlap accumulates in one GPU field.
-    'heatmap-weight': ['get', 'weight'], 'heatmap-intensity': 2.5,
-    'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 9, 40, 13, 160, 17, 210],
+    // The radius stays close to the sample spacing of the city-wide distribution so
+    // concentration reads as geography, never as a halo around any single marker.
+    'heatmap-weight': ['get', 'weight'], 'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 9, 1.4, 12, 1.5, 14, 1.6, 17, 1.9],
+    'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 9, 16, 12, 30, 14, 48, 17, 110],
     'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'],
       0, 'rgba(39,177,96,0)', .06, 'rgba(39,177,96,0.16)', .18, 'rgba(68,186,78,0.44)',
       .38, 'rgba(246,215,57,0.56)', .65, 'rgba(246,143,42,0.64)', 1, 'rgba(218,52,43,0.68)'],
@@ -68,7 +70,8 @@ export function useGLFleet(handle: CityMapHandle | null, fixes: VehicleFix[], se
       if (disposed) return;
       if (!map.hasImage('city-bus-model')) map.addImage('city-bus-model', vehicleImage(), { pixelRatio: 2 });
       map.addSource('city-fleet', { type: 'geojson', data: emptyGeoJSON() });
-      map.addLayer({ id: 'city-fleet-selection', type: 'circle', source: 'city-fleet', filter: ['==', ['get', 'selected'], true], paint: { 'circle-radius': 25, 'circle-color': '#ffffff', 'circle-opacity': .4, 'circle-stroke-width': 2, 'circle-stroke-color': '#2474ae' } });
+      // A thin selection ring, never a filled glow: a disc around a bus reads as heat.
+      map.addLayer({ id: 'city-fleet-selection', type: 'circle', source: 'city-fleet', filter: ['==', ['get', 'selected'], true], paint: { 'circle-radius': 21, 'circle-color': '#ffffff', 'circle-opacity': 0, 'circle-stroke-width': 2.5, 'circle-stroke-color': '#2474ae', 'circle-stroke-opacity': .9 } });
       map.addLayer({ id: 'city-fleet-vehicles', type: 'symbol', source: 'city-fleet', layout: { 'icon-image': 'city-bus-model', 'icon-size': .85, 'icon-rotate': ['get', 'heading'], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-pitch-alignment': 'viewport', 'icon-rotation-alignment': 'map' } }); schedule();
     };
     motion.current.update(latest.current.fixes, performance.now(), preference.matches || document.hidden); redraw.current = schedule;
