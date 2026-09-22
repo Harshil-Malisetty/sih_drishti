@@ -1,7 +1,13 @@
-.operational-map-shell { display:flex;flex-direction:column;height:calc(100dvh - 142px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.operational-map-shell { position:relative;display:flex;flex-direction:column;height:calc(100dvh - 142px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 .police .operational-map-shell { height:calc(100dvh - 206px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 .police .police-workflow > .operational-map-shell { height:calc(100dvh - 128px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 .operational-map-shell > .map-page,.police .operational-map-shell > .map-page { flex:1;height:auto;min-height:320px; }
+
+/* Desktop: the dock is an ordinary control strip above the map. Its sheet chrome and
+   launcher only exist in the compact layout, so both share one DOM tree and one state. */
+.operational-control-dock { flex-shrink:0; }
+.operational-dock-head,.operational-dock-launcher { display:none; }
+
 .operational-heat-controls { position:relative;z-index:6;flex-shrink:0;margin:14px 20px;padding:13px 16px 10px;border:1px solid #dce6df;border-radius:12px;background:#fbfdfb;color:#294b40; }
 .operational-heat-toolbar { display:flex;flex-wrap:wrap;align-items:center;gap:12px; }
 .operational-heat-controls label,.fleet-replay-controls label { display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer; }
@@ -26,7 +32,7 @@
 .operational-heat-settings p,.operational-map-note { color:#6d8175;font-size:10px;line-height:1.5;margin:8px 0 0; }
 .operational-fleet-picker { position:absolute;z-index:4;top:125px;left:12px;max-width:calc(100% - 100px);display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fffffff5;border:1px solid #d5e3da;border-radius:8px;font-size:11px;color:#335a49; }
 .operational-fleet-picker select { font:inherit;color:inherit;background:transparent;border:0;max-width:245px;min-height:28px; }
-.operational-heat-controls :is(input,summary,button):focus-visible,.operational-fleet-picker select:focus-visible,.fleet-replay-controls :is(input,button,select):focus-visible { outline:3px solid #3b8968;outline-offset:3px; }
+.operational-heat-controls :is(input,summary,button):focus-visible,.operational-fleet-picker select:focus-visible,.fleet-replay-controls :is(input,button,select):focus-visible,.operational-dock-launcher:focus-visible,.operational-dock-close:focus-visible { outline:3px solid #3b8968;outline-offset:3px; }
 .fleet-replay-controls { flex-shrink:0;margin:0 20px 12px;padding:10px 12px;background:#f1f6fb;border:1px solid #d5e3ed;border-radius:9px;color:#35566a; }
 .fleet-replay-actions { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
 .fleet-replay-actions button,.fleet-replay-actions select { min-height:32px;padding:5px 9px;border:1px solid #c8dae5;border-radius:6px;color:#285775;background:#fff;font-size:11px; }
@@ -34,17 +40,84 @@
 .fleet-replay-actions [role=status] { margin-left:auto;font-size:10px; }
 .fleet-demo-badge { background:#e5edf4;color:#526a7f;font-size:8px;font-weight:750;letter-spacing:.08em;padding:5px;border-radius:4px; }
 .fleet-replay-controls p { font-size:10px;line-height:1.5;margin:7px 0 0;color:#678090; }
-@media(max-width:799px) {
- .operational-heat-controls { margin:10px 12px;padding:11px; }
+
+/* One overlay row for the record filter and the layers launcher. Nothing else competes
+   with the map for vertical space in the compact layout. */
+.operational-map-bar { display:contents; }
+
+@media(max-width:799px),(max-height:560px) {
+ /* Map-first: every secondary control becomes an overlay or moves into the sheet. */
+ .operational-map-shell { height:calc(100dvh - 158px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+ .police .operational-map-shell { height:calc(100dvh - 164px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+ .police .police-workflow > .operational-map-shell { height:calc(100dvh - 104px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+ .operational-map-shell > .map-page,.police .operational-map-shell > .map-page { min-height:0; }
+
+ .operational-map-bar { position:absolute;z-index:7;top:10px;left:10px;right:56px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap; }
+ .map-page .operational-map-bar > .map-filter { position:static;top:auto;left:auto;right:auto;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none; }
+ .operational-map-bar > .map-filter::-webkit-scrollbar { display:none; }
+ .operational-map-bar .filterbar { width:max-content;padding:3px;background:#fffffff2;border-radius:9px;box-shadow:0 2px 12px #1d3a2f1f; }
+ .operational-map-bar .filterbar button { min-height:34px;white-space:nowrap; }
+ .operational-dock-launcher { display:flex;align-items:center;gap:6px;flex-shrink:0;min-height:36px;padding:0 11px;border:1px solid #d5e3da;border-radius:9px;background:#fffffff2;color:#2c5647;font-size:11px;font-weight:650;box-shadow:0 2px 12px #1d3a2f1f; }
+ .operational-dock-launcher[aria-expanded=true] { background:#244f42;border-color:#244f42;color:#fff; }
+ .operational-dock-launcher em { font-style:normal;font-size:9px;opacity:.75; }
+
+ .operational-control-dock { position:absolute;z-index:12;left:0;right:0;bottom:0;display:flex;flex-direction:column;max-height:min(66%,440px);background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -8px 32px #1a3a3029;transform:translateY(101%);visibility:hidden;transition:transform .22s ease,visibility .22s; }
+ .operational-control-dock[data-open=true] { transform:none;visibility:visible; }
+ .operational-dock-head { display:flex;align-items:center;gap:10px;flex-shrink:0;padding:12px 14px 8px;border-bottom:1px solid #eaf0eb; }
+ .operational-dock-head .handle { position:absolute;left:50%;top:6px;transform:translateX(-50%);margin:0; }
+ .operational-dock-head strong { flex:1;font-size:13px;color:#264c3f; }
+ .operational-dock-close { display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:8px;background:#f1f5f1;color:#4a6559; }
+ .operational-dock-body { flex:1;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+
+ .operational-heat-controls { margin:12px;padding:11px;z-index:auto; }
  .operational-heat-switch { flex:1 1 100%; }
  .operational-heat-toolbar { gap:10px; }
  .operational-heat-legend i { width:80px; }
  .operational-opacity { margin-left:auto; }
  .operational-opacity input { width:55px; }
- .operational-heat-options { flex:1; }
+ .operational-heat-options { flex:1;position:static; }
  .operational-heat-options summary { text-align:center; }
- .operational-fleet-picker select { max-width:190px; }
- .fleet-replay-controls { margin:0 12px 10px;padding:8px 10px; }
+ .operational-heat-settings { position:static;width:auto;max-width:none;max-height:none;margin-top:8px;padding:14px;box-shadow:none; }
+ .fleet-replay-controls { margin:0 12px 12px;padding:8px 10px; }
  .fleet-replay-actions { gap:7px; }
  .fleet-replay-controls p { display:none; }
+
+ /* The fleet picker moves into the sheet, where it no longer sits over the map. */
+ .operational-control-dock .operational-fleet-picker { position:static;margin:0 12px 12px;max-width:none; }
+ .operational-control-dock .operational-fleet-picker select { flex:1;min-width:0;max-width:none;min-height:36px; }
+
+ /* Area summary shrinks to a chip instead of an opaque band across the map. */
+ .map-page .police-map-heading { top:54px;left:10px;right:auto;width:auto;max-width:calc(100% - 66px);min-height:0;gap:8px;padding:6px 10px;border:1px solid #d5e3da;border-bottom-color:#d5e3da;border-radius:9px;background:#fffffff2;box-shadow:0 2px 12px #1d3a2f1f; }
+ .map-page .police-map-heading div > span { display:none; }
+ .map-page .police-map-heading h1 { font-size:12px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+ .map-page .police-map-heading > span { font-size:10px;white-space:nowrap; }
+ .police .police-real-map .police-map-empty { top:98px;left:10px;right:56px; }
+ .police .police-real-map .police-map-history { top:98px;left:10px;right:56px; }
+ /* The detail sheet informs without swallowing the map. */
+ .police .police-real-map .bottom-sheet,.municipal-map-page .bottom-sheet { max-height:40%;bottom:10px;left:10px;right:10px; }
+}
+
+@media(prefers-reduced-motion:reduce) { .operational-control-dock { transition:none; } }
+
+/* Landscape handsets: trim the fixed chrome so the map keeps a usable share of the screen. */
+@media(max-height:560px) {
+ .operational-map-shell { height:calc(100dvh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+ .police .operational-map-shell { height:calc(100dvh - 176px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+ .police .police-workflow > .operational-map-shell { height:calc(100dvh - 116px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+ .police .police-header .app-header { min-height:calc(48px + env(safe-area-inset-top));padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:6px; }
+ .police .jurisdiction-bar { height:46px;padding-block:4px; }
+ .police .jurisdiction-select select { min-height:36px;padding:4px 0; }
+ .operational-control-dock { max-height:82%; }
+}
+/* A short, wide screen has room beside the map but not under it: detail and controls
+   become a side column so the map keeps its full height. */
+@media(max-height:560px) and (min-width:620px) {
+ .operational-control-dock { left:auto;width:min(340px,46%);top:0;border-radius:14px 0 0 14px;transform:translateX(101%);box-shadow:-8px 0 32px #1a3a3029;max-height:none; }
+ .operational-control-dock[data-open=true] { transform:none; }
+ .police .police-real-map .bottom-sheet,.municipal-map-page .bottom-sheet { left:auto;right:10px;top:10px;width:min(320px,44%);max-height:calc(100% - 20px); }
+ .operational-map-bar { right:auto;max-width:calc(54% - 20px); }
+ .map-page .police-map-heading { max-width:calc(54% - 20px); }
+ .police .police-real-map .police-map-empty,.police .police-real-map .police-map-history { right:auto;max-width:calc(54% - 20px); }
+ /* Keep the native map controls clear of the side card. */
+ .map-page .maplibregl-ctrl-top-right { right:calc(min(320px,44%) + 16px); }
 }

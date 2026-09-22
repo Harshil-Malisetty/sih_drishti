@@ -9,6 +9,8 @@ export interface HeatPoint {
   id: string; latitude: number; longitude: number; segmentId: string;
   title: string; location: string; category: string; weight: number;
   detections: number; active: boolean; observedAt: string;
+  /** Set on generated city-wide distribution samples; canonical store cases leave it unset. */
+  simulated?: boolean;
 }
 export const defaultHeatFilters: HeatFilters = { category: 'all', period: 'all', history: false, metric: 'cases' };
 export const policeHeatCategories = [

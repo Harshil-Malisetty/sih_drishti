@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { OperationalHeatControls, useHeatDisplay } from '../components/OperationalHeatControls';
+import { MapControlDock, MapDockLauncher, useCompactViewport } from '../components/MapControlDock';
 import { defaultHeatFilters, selectHeatSignals } from '../domain/mapSignals';
+import { selectCityEventField } from '../domain/cityEventField';
+import { cameraForMode, type CityMapMode } from '../components/MapLibreMap';
 import {
   ArrowRight,
   BusFront,
@@ -542,7 +545,14 @@ function MunicipalMap({
   const [heatHistory, setHeatHistory] = useState(false);
   const [heatRepeats, setHeatRepeats] = useState(false);
   const [heatFitRequest, setHeatFitRequest] = useState(0);
-  const heatPoints = useMemo(() => selectHeatSignals(state, 'municipal', { ...defaultHeatFilters, history: heatHistory, metric: heatRepeats ? 'observations' : 'cases' }), [state, heatHistory, heatRepeats]);
+  // UI STATE lives here, above the renderer, so the geographic mode cannot disturb it.
+  const [mapMode, setMapMode] = useState<CityMapMode>('2d');
+  const [dockOpen, setDockOpen] = useState(false);
+  const compact = useCompactViewport();
+  const heatFilters = useMemo(() => ({ ...defaultHeatFilters, history: heatHistory, metric: heatRepeats ? 'observations' as const : 'cases' as const }), [heatHistory, heatRepeats]);
+  const caseCount = useMemo(() => selectHeatSignals(state, 'municipal', heatFilters).length, [state, heatFilters]);
+  // City-wide detection distribution, derived from the road network rather than the fleet.
+  const heatPoints = useMemo(() => selectCityEventField(state, 'municipal', heatFilters), [state, heatFilters]);
   const heatDisplay = useHeatDisplay(heatPoints);
   const visible = defects.filter((x) => inMunicipalLayer(x, filter));
   const item = visible.find((x) => x.id === selected);
@@ -566,13 +576,20 @@ function MunicipalMap({
     if (first) onSelect(first.id);
   };
   return (
-    <div className="operational-map-shell"><OperationalHeatControls role="municipal" display={heatDisplay} points={heatPoints} history={heatHistory} setHistory={setHeatHistory} repeats={heatRepeats} setRepeats={setHeatRepeats} onFit={() => setHeatFitRequest(value => value + 1)}/><div className="map-page municipal-map-page">
-      <div className="map-filter">
-        <FilterBar
-          items={municipalLayers}
-          active={filter}
-          onChange={changeFilter}
-        />
+    <div className="operational-map-shell">
+      <MapControlDock open={dockOpen} onClose={() => setDockOpen(false)}>
+        <OperationalHeatControls role="municipal" display={heatDisplay} points={heatPoints} cases={caseCount} history={heatHistory} setHistory={setHeatHistory} repeats={heatRepeats} setRepeats={setHeatRepeats} onFit={() => setHeatFitRequest(value => value + 1)}/>
+      </MapControlDock>
+      <div className="map-page municipal-map-page">
+      <div className="operational-map-bar">
+        <div className="map-filter">
+          <FilterBar
+            items={municipalLayers}
+            active={filter}
+            onChange={changeFilter}
+          />
+        </div>
+        <MapDockLauncher open={dockOpen} onToggle={() => setDockOpen(value => !value)} count={heatDisplay.visible ? 'on' : 'off'}/>
       </div>
       <MunicipalMapView
         heatPoints={heatDisplay.points}
@@ -580,9 +597,12 @@ function MunicipalMap({
         heatFitRequest={heatFitRequest}
         markers={markers}
         selected={selected}
-        initialView={view}
+        initialView={view && cameraForMode(view, mapMode)}
         onSelect={onSelect}
         onViewChange={onViewChange}
+        mode={mapMode}
+        onModeChange={setMapMode}
+        compact={compact}
       />
       {item && (
         <section className="bottom-sheet">

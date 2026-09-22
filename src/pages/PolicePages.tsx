@@ -20,8 +20,11 @@ import type { CityIncident } from '../types/city';
 import { EvidenceCredit, EvidenceImage, EvidenceScene } from '../components/EvidenceMedia';
 import { EventThumbnail, eventPhaseLabel, type EventCategory } from '../components/EventThumbnail';
 import { OperationalHeatControls, useHeatDisplay } from '../components/OperationalHeatControls';
+import { MapControlDock, MapDockLauncher, useCompactViewport } from '../components/MapControlDock';
 import { FleetReplayControls } from '../components/FleetReplayControls';
 import { defaultHeatFilters, selectHeatSignals } from '../domain/mapSignals';
+import { selectCityEventField } from '../domain/cityEventField';
+import { cameraForMode, type CityMapMode } from '../components/MapLibreMap';
 import { useBusPlayback } from '../services/useBusPlayback';
 
 type WorkflowView={kind:'incident';id:string}|{kind:'evidence';id:string}|{kind:'assignment';id:string}|{kind:'match';id:string}|{kind:'map';id:string}|{kind:'traffic';id:string};
@@ -41,8 +44,15 @@ function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)
  const [fleetFocusRequest,setFleetFocusRequest]=useState(0);
  const [replayEnabled,setReplayEnabled]=useState(true);
  const [replaySpeed,setReplaySpeed]=useState(4);
+ // UI STATE lives here, above the renderer, so the geographic mode cannot disturb it.
+ const [mapMode,setMapMode]=useState<CityMapMode>('2d');
+ const [dockOpen,setDockOpen]=useState(false);
+ const compact=useCompactViewport();
  const playback=useBusPlayback(buses,replaySpeed);
- const heatPoints=useMemo(()=>selectHeatSignals(state,'police',{...defaultHeatFilters,history:heatHistory},jurisdictionId),[state,heatHistory,jurisdictionId]);
+ const heatFilters=useMemo(()=>({...defaultHeatFilters,history:heatHistory}),[heatHistory]);
+ const caseCount=useMemo(()=>selectHeatSignals(state,'police',heatFilters,jurisdictionId).length,[state,heatFilters,jurisdictionId]);
+ // City-wide detection distribution, derived from the road network rather than the fleet.
+ const heatPoints=useMemo(()=>selectCityEventField(state,'police',heatFilters,jurisdictionId),[state,heatFilters,jurisdictionId]);
  const heatDisplay=useHeatDisplay(heatPoints);
  const [filter,setFilter]=useState<PoliceMapRecord['group']>(()=>incidents.some(item=>item.id===selected)?'Incidents':watchlist.some(item=>item.id===selected||item.observations?.some(observation=>observation.id===selected))?'Watchlist':'Fleet');
  useEffect(()=>{playback.setVisible(replayEnabled&&filter==='Fleet')},[replayEnabled,filter,playback.setVisible]);
@@ -70,15 +80,23 @@ function PoliceOperationalMap({open,selected,onSelect,cameras}:{open:(id:string)
  const trail=active?.type==='watchlist'?watchlist.find(item=>item.id===active.id)?.observations?.map(item=>({id:item.id,latitude:item.latitude,longitude:item.longitude,label:`${item.busId} · ${formatDemoDate(demoDate(item.timestamp))}`})):[];
  const actionRecordId=selectedObservation?.parent.id||active?.id;
  const changeFilter=(value:string)=>{const next=value as PoliceMapRecord['group'];setFilter(next);onSelect(records.find(item=>item.group===next)?.id||'')};
- const initialView=cameras[filter]||(jurisdiction?{center:[...jurisdiction.center] as [number,number],zoom:jurisdiction.zoom}:undefined);
+ const storedView=cameras[filter]||(jurisdiction?{center:[...jurisdiction.center] as [number,number],zoom:jurisdiction.zoom}:undefined);
+ const initialView=storedView&&cameraForMode(storedView,mapMode);
+ const fleetPicker=filter==='Fleet'&&<label className="operational-fleet-picker">Bus<select aria-label="Select fleet vehicle" value={active?.id||''} onChange={event=>onSelect(event.target.value)}><option value="" disabled>Select vehicle</option>{visible.map(bus=><option key={bus.id} value={bus.id}>{bus.label}</option>)}</select></label>;
  return <div className="operational-map-shell">
-  <OperationalHeatControls role="police" display={heatDisplay} points={heatPoints} history={heatHistory} setHistory={setHeatHistory} onFit={()=>setHeatFitRequest(value=>value+1)}/>
-  {filter==='Fleet'&&<FleetReplayControls playback={playback} enabled={replayEnabled} setEnabled={setReplayEnabled} speed={replaySpeed} setSpeed={setReplaySpeed} onLocate={id=>{onSelect(id);setFleetFocusRequest(value=>value+1)}}/>}
+  <MapControlDock open={dockOpen} onClose={()=>setDockOpen(false)}>
+   <OperationalHeatControls role="police" display={heatDisplay} points={heatPoints} cases={caseCount} history={heatHistory} setHistory={setHeatHistory} onFit={()=>setHeatFitRequest(value=>value+1)}/>
+   {filter==='Fleet'&&<FleetReplayControls playback={playback} enabled={replayEnabled} setEnabled={setReplayEnabled} speed={replaySpeed} setSpeed={setReplaySpeed} onLocate={id=>{onSelect(id);setFleetFocusRequest(value=>value+1)}}/>}
+   {compact&&fleetPicker}
+  </MapControlDock>
   <div className="map-page police-real-map">
   <div className="police-map-heading"><div><span>AREA OPERATIONS</span><h1>{areaName}</h1></div><span role="status">{visible.length} {filter.toLowerCase()} {visible.length===1?'record':'records'}</span></div>
-  <div className="map-filter police-filters"><FilterBar items={['Fleet','Incidents','Watchlist']} active={filter} onChange={changeFilter}/></div>
-  {filter==='Fleet'&&<label className="operational-fleet-picker">Bus<select aria-label="Select fleet vehicle" value={active?.id||''} onChange={event=>onSelect(event.target.value)}><option value="" disabled>Select vehicle</option>{visible.map(bus=><option key={bus.id} value={bus.id}>{bus.label}</option>)}</select></label>}
-  <PoliceMapView key={jurisdictionId} viewKey={filter} initialView={initialView} onViewChange={camera=>{cameras[filter]=camera}} markers={displayed} selected={selected} onSelect={onSelect} onTrailSelect={onSelect} trail={trail} heatPoints={heatDisplay.points} heatOpacity={heatDisplay.visible?heatDisplay.opacity:0} heatFitRequest={heatFitRequest} fleetFocusRequest={fleetFocusRequest}/>
+  <div className="operational-map-bar">
+   <div className="map-filter police-filters"><FilterBar items={['Fleet','Incidents','Watchlist']} active={filter} onChange={changeFilter}/></div>
+   <MapDockLauncher open={dockOpen} onToggle={()=>setDockOpen(value=>!value)} count={heatDisplay.visible?'on':'off'}/>
+  </div>
+  {!compact&&fleetPicker}
+  <PoliceMapView key={jurisdictionId} viewKey={filter} initialView={initialView} onViewChange={camera=>{cameras[filter]=camera}} markers={displayed} selected={selected} onSelect={onSelect} onTrailSelect={onSelect} trail={trail} heatPoints={heatDisplay.points} heatOpacity={heatDisplay.visible?heatDisplay.opacity:0} heatFitRequest={heatFitRequest} fleetFocusRequest={fleetFocusRequest} mode={mapMode} onModeChange={setMapMode} compact={compact}/>
   {!visible.length&&<div className="police-map-empty"><PoliceEmptyState title={`No ${filter.toLowerCase()} records here`} text="There are no current records in this map layer."/></div>}
   {active?.type==='watchlist'&&jurisdiction&&<p className="police-map-history">Latest sighting is in this area. The trail includes earlier sightings outside it.</p>}
   {active&&<BottomSheet eyebrow={selectedObservation?'MOVEMENT TRAIL OBSERVATION':active.eyebrow} title={selectedObservation?selectedObservation.observation.id:active.title} action={active.type==='incident'?'View Incident':active.type==='watchlist'?'Open Record':undefined} onAction={active.type!=='bus'&&actionRecordId?()=>open(actionRecordId):undefined}>
